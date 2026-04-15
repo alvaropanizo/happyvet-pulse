@@ -144,10 +144,9 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 
 ### CI / Pipeline Status
 
-- There is currently no GitHub Actions workflow in the repository.
-- Tests do **not** run automatically on push yet.
-- To enable pipeline execution on push/PR, add a workflow under `.github/workflows/` that runs:
-  - backend tests (`pytest`)
+- GitHub Actions workflow is configured at `.github/workflows/tests.yml`.
+- Tests run automatically on `push` and `pull_request` for:
+  - backend tests (`pytest -q`)
   - frontend tests (`npm run test`)
 
 ### Conventions for Upcoming Iterations
@@ -157,3 +156,62 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - **Structured output**: every extracted field should support value + confidence + source span/provenance when possible.
 - **Human review flow**: design for "extract -> review -> correct -> approve".
 - **Backward compatibility**: coordinate schema changes between FE and BE in the same iteration.
+
+## Milestone 2 Decisions (So Far)
+
+### UI Scope (Current Progress)
+
+- Milestone 2 started with **frontend-only** iteration.
+- Current UI includes:
+  - upload area with drag-and-drop and click-to-select behavior
+  - left panel showing "Last uploaded documents"
+  - uploaded filename list (client-side state)
+
+### Frontend Architecture Decisions
+
+- Upload UI has been componentized into:
+  - `frontend/src/components/UploadPanel.jsx`
+  - `frontend/src/components/RecentDocumentsPanel.jsx`
+- `frontend/src/App.jsx` acts as composition/layout container and shared state owner.
+- Keep this split for future features (upload status, API integration, previews).
+
+### Styling and Design Constraints
+
+- Required palette:
+  - `#ffefeb` main background
+  - `#fd4d0d` primary actions/details
+  - `#fae0ff` secondary soft accent
+  - `#3898ff` info/secondary accent
+- Title font stack:
+  - `"ESRebondGrotesque","Arial",sans-serif`
+- Main upload title text:
+  - `"Upload medical record documents"`
+- Layout target:
+  - left/right 2:8 proportion (implemented via CSS grid `2fr 8fr`)
+
+### Frontend Library Choices
+
+- UI framework: `react-bootstrap`
+- Icons: `bootstrap-icons`
+- Base styles: `bootstrap` CSS imported in `src/main.jsx`
+
+### Testing Decisions
+
+- Keep a basic UI smoke test in `frontend/src/App.test.jsx`.
+- Test currently validates presence of heading:
+  - `"Upload medical record documents"`
+- Rule: update this test whenever heading/UX entry text intentionally changes.
+
+### Docker/Compose Safety Notes for FE Dev
+
+- Frontend runs with bind mount (`./frontend:/app`) plus named volume for `node_modules`.
+- To avoid missing-dependency issues after adding packages, compose command checks required modules and runs `npm ci` when needed.
+- If stale module volume causes import resolution errors, use:
+  - `docker compose down -v`
+  - `docker compose up --build`
+
+### Backend Milestone 2 Pending (Not Implemented Yet)
+
+- Upload API endpoint (multipart file receive + simple metadata response such as file size).
+- Backend-side tests for upload success/error cases.
+- Logging and error-handling improvements around upload flow.

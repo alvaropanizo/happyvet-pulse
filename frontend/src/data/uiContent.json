@@ -1,0 +1,27 @@
+{
+  "app": {
+    "uploadTitle": "Upload medical record documents"
+  },
+  "uploadPanel": {
+    "dropInstruction": "Drop file here or click to select",
+    "supportNote": "Supported now: single file selection for the upcoming upload flow.",
+    "selectButton": "Select file",
+    "fileInputAriaLabel": "File selector",
+    "selectedPrefix": "Selected:"
+  },
+  "recentDocumentsPanel": {
+    "title": "Last uploaded documents",
+    "emptyState": "No documents uploaded yet."
+  },
+  "documentPreview": {
+    "title": "Document preview",
+    "imageAltPrefix": "Preview of",
+    "pdfTitlePrefix": "Preview of",
+    "textReadError": "Could not read this text file.",
+    "textLoading": "Loading text preview...",
+    "docxUnsupported": "DOCX preview is not supported yet in-browser.",
+    "fileSelectedPrefix": "File selected:",
+    "unsupportedTitle": "Preview not supported for this file type.",
+    "unsupportedFormatPrefix": "Unsupported format:"
+  }
+}
