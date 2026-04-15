@@ -1,13 +1,22 @@
 {
   "app": {
-    "uploadTitle": "Upload medical record documents"
+    "uploadTitle": "Upload medical record documents",
+    "uploadResult": {
+      "title": "Upload result metadata",
+      "fileNameLabel": "File name:",
+      "contentTypeLabel": "Content type:",
+      "fileSizeLabel": "Size (bytes):",
+      "textPreviewLabel": "Text preview:"
+    }
   },
   "uploadPanel": {
     "dropInstruction": "Drop file here or click to select",
     "supportNote": "Supported now: single file selection for the upcoming upload flow.",
     "selectButton": "Select file",
     "fileInputAriaLabel": "File selector",
-    "selectedPrefix": "Selected:"
+    "selectedPrefix": "Selected:",
+    "uploadingMessage": "Uploading file to API...",
+    "uploadErrorPrefix": "Upload error:"
   },
   "recentDocumentsPanel": {
     "title": "Last uploaded documents",

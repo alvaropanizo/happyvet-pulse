@@ -1,0 +1,25 @@
+const API_BASE_URL = import.meta.env.BACKEND_API_BASE_URL || "http://localhost:8000";
+
+export async function uploadDocument(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let detail = "Upload failed.";
+    try {
+      const errorPayload = await response.json();
+      detail = errorPayload.detail || detail;
+    } catch {
+      // Keep default error detail if parsing fails.
+    }
+
+    throw new Error(detail);
+  }
+
+  return response.json();
+}

@@ -107,3 +107,54 @@ Deliver the first usable upload vertical slice with a styled UI and a simple bac
 - Decomposed `DocumentPreview` into focused renderer subcomponents.
 - Moved preview dimensions/padding into theme tokens.
 - Added runtime validation for UI content contract in `frontend/src/utils/validateUiContent.js`.
+
+### Milestone 2 - Backend/API Progress (Implemented)
+
+#### API Endpoint
+
+- Added upload endpoint: `POST /api/v1/documents/upload`
+- Input: multipart file (`file`)
+- Response metadata:
+  - `filename`
+  - `content_type`
+  - `size_bytes`
+  - `text_preview` (quick UTF-8 decoded preview)
+
+#### Backend Architecture Improvements
+
+- Modularized routes:
+  - `backend/app/api/routes/health.py`
+  - `backend/app/api/routes/documents.py`
+- Added centralized error handling:
+  - `AppError` for application-level errors
+  - global handlers for app and validation errors
+  - standardized error payload: `{"error":{"code":"...","message":"..."}}`
+- Added centralized logging utility and upload route logging.
+
+### Milestone 2 - FE <-> API Wiring (Implemented)
+
+- Frontend upload flow now calls backend endpoint on file selection.
+- Added API client hook: `frontend/src/hooks/uploadDocument.js`
+- Added API metadata UI component: `frontend/src/components/UploadResultCard.jsx`
+- Added upload status/error UI states in upload panel.
+- Wired frontend API base URL through env variable:
+  - `BACKEND_API_BASE_URL`
+  - documented in `frontend/.env.example` and `README.md`
+
+### Milestone 2 - Testing and CI Status (Current)
+
+- Backend tests:
+  - health check
+  - upload success
+  - empty upload error
+  - missing-file validation error
+- Frontend tests:
+  - integration scenarios for upload UI + API metadata/error rendering
+  - utility tests for file preview classification
+- E2E smoke tests (Playwright):
+  - successful TXT upload metadata visibility
+  - API failure upload error visibility
+- CI pipeline (`.github/workflows/tests.yml`) runs:
+  - backend tests
+  - frontend unit/integration tests
+  - frontend e2e smoke tests (after FE tests pass)

@@ -19,22 +19,54 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
   /backend
     /app
       __init__.py
+      /api
+        /routes
+          documents.py
+          health.py
+      /core
+        error_handlers.py
+        exceptions.py
+        logging.py
+      /schemas
+        error.py
       main.py
     /tests
       test_health.py
+      test_upload.py
     pytest.ini
     Dockerfile
     requirements.txt
   /frontend
     index.html
     vite.config.js
+    playwright.config.js
     package-lock.json
     /src
       App.jsx
       main.jsx
       App.test.jsx
+      /constants
+        previewTypes.js
+      /components
+        DocumentPreview.jsx
+        RecentDocumentsPanel.jsx
+        UploadPanel.jsx
+        UploadResultCard.jsx
+      /data
+        uiContent.json
+      /hooks
+        uploadDocument.js
+      /styles
+        uiTheme.js
       /test
         setup.js
+      /utils
+        filePreview.js
+        validateUiContent.js
+    /tests
+      /e2e
+        upload-smoke.spec.js
+    .env.example
     Dockerfile
     package.json
   docker-compose.yml
@@ -148,6 +180,7 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - Tests run automatically on `push` and `pull_request` for:
   - backend tests (`pytest -q`)
   - frontend tests (`npm run test`)
+  - frontend e2e smoke tests (`npm run test:e2e`) after FE tests pass
 
 ### Conventions for Upcoming Iterations
 
@@ -157,7 +190,7 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - **Human review flow**: design for "extract -> review -> correct -> approve".
 - **Backward compatibility**: coordinate schema changes between FE and BE in the same iteration.
 
-## Milestone 2 Decisions (So Far)
+## Milestone 2 Decisions (Current)
 
 ### UI Scope (Current Progress)
 
@@ -172,7 +205,10 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - Upload UI has been componentized into:
   - `frontend/src/components/UploadPanel.jsx`
   - `frontend/src/components/RecentDocumentsPanel.jsx`
+  - `frontend/src/components/DocumentPreview.jsx`
+  - `frontend/src/components/UploadResultCard.jsx`
 - `frontend/src/App.jsx` acts as composition/layout container and shared state owner.
+- API integration is isolated in `frontend/src/hooks/uploadDocument.js`.
 - Keep this split for future features (upload status, API integration, previews).
 
 ### Styling and Design Constraints
@@ -197,10 +233,18 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 
 ### Testing Decisions
 
-- Keep a basic UI smoke test in `frontend/src/App.test.jsx`.
-- Test currently validates presence of heading:
-  - `"Upload medical record documents"`
-- Rule: update this test whenever heading/UX entry text intentionally changes.
+- Frontend integration tests (`frontend/src/App.test.jsx`) cover:
+  - heading + empty state
+  - upload selection/list update
+  - metadata rendering from successful API response
+  - metadata fallback when preview text is empty
+  - unsupported file fallback
+  - DOCX fallback
+  - API error display
+- Utility tests (`frontend/src/utils/filePreview.test.js`) validate file-type classification.
+- E2E smoke tests (`frontend/tests/e2e/upload-smoke.spec.js`) cover:
+  - successful TXT upload -> metadata visible
+  - API failure -> upload error visible
 
 ### Docker/Compose Safety Notes for FE Dev
 
@@ -210,8 +254,24 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - `docker compose down -v`
   - `docker compose up --build`
 
-### Backend Milestone 2 Pending (Not Implemented Yet)
+### Backend Milestone 2 Status
 
-- Upload API endpoint (multipart file receive + simple metadata response such as file size).
-- Backend-side tests for upload success/error cases.
-- Logging and error-handling improvements around upload flow.
+- Upload endpoint implemented at `POST /api/v1/documents/upload`.
+- Endpoint returns quick metadata:
+  - `filename`
+  - `content_type`
+  - `size_bytes`
+  - `text_preview`
+- API routes are modularized:
+  - `backend/app/api/routes/health.py`
+  - `backend/app/api/routes/documents.py`
+- Centralized error handling implemented:
+  - app-level `AppError`
+  - global handlers for app + validation errors
+  - standardized payload: `{"error": {"code": "...", "message": "..."}}`
+- Centralized logging utility implemented and used by upload route.
+- Backend tests include:
+  - health endpoint
+  - upload success
+  - empty upload error
+  - missing file validation error

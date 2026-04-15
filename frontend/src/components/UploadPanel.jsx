@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { Button, Card } from "react-bootstrap";
 
-import { sharedStyles, uploadStyles } from "../styles/uiTheme";
+import { previewStyles, sharedStyles, uploadStyles } from "../styles/uiTheme";
 
-function UploadPanel({ onFileSelected, selectedFileName, title, content }) {
+function UploadPanel({ onFileSelected, selectedFileName, title, content, isUploading, uploadError }) {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -62,6 +62,18 @@ function UploadPanel({ onFileSelected, selectedFileName, title, content }) {
           {selectedFileName ? (
             <p className="mt-3 mb-0" style={uploadStyles.bodyText}>
               {content.selectedPrefix} <strong>{selectedFileName}</strong>
+            </p>
+          ) : null}
+
+          {isUploading ? (
+            <p className="mt-2 mb-0" style={uploadStyles.bodyText}>
+              {content.uploadingMessage}
+            </p>
+          ) : null}
+
+          {uploadError ? (
+            <p className="mt-2 mb-0" style={previewStyles.errorText}>
+              {content.uploadErrorPrefix} {uploadError}
             </p>
           ) : null}
         </Card.Body>
