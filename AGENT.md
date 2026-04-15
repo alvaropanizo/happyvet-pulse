@@ -19,22 +19,54 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
   /backend
     /app
       __init__.py
+      /api
+        /routes
+          documents.py
+          health.py
+      /core
+        error_handlers.py
+        exceptions.py
+        logging.py
+      /schemas
+        error.py
       main.py
     /tests
       test_health.py
+      test_upload.py
     pytest.ini
     Dockerfile
     requirements.txt
   /frontend
     index.html
     vite.config.js
+    playwright.config.js
     package-lock.json
     /src
       App.jsx
       main.jsx
       App.test.jsx
+      /constants
+        previewTypes.js
+      /components
+        DocumentPreview.jsx
+        RecentDocumentsPanel.jsx
+        UploadPanel.jsx
+        UploadResultCard.jsx
+      /data
+        uiContent.json
+      /hooks
+        uploadDocument.js
+      /styles
+        uiTheme.js
       /test
         setup.js
+      /utils
+        filePreview.js
+        validateUiContent.js
+    /tests
+      /e2e
+        upload-smoke.spec.js
+    .env.example
     Dockerfile
     package.json
   docker-compose.yml
@@ -144,11 +176,11 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 
 ### CI / Pipeline Status
 
-- There is currently no GitHub Actions workflow in the repository.
-- Tests do **not** run automatically on push yet.
-- To enable pipeline execution on push/PR, add a workflow under `.github/workflows/` that runs:
-  - backend tests (`pytest`)
+- GitHub Actions workflow is configured at `.github/workflows/tests.yml`.
+- Tests run automatically on `push` and `pull_request` for:
+  - backend tests (`pytest -q`)
   - frontend tests (`npm run test`)
+  - frontend e2e smoke tests (`npm run test:e2e`) after FE tests pass
 
 ### Conventions for Upcoming Iterations
 
@@ -157,3 +189,89 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - **Structured output**: every extracted field should support value + confidence + source span/provenance when possible.
 - **Human review flow**: design for "extract -> review -> correct -> approve".
 - **Backward compatibility**: coordinate schema changes between FE and BE in the same iteration.
+
+## Milestone 2 Decisions (Current)
+
+### UI Scope (Current Progress)
+
+- Milestone 2 started with **frontend-only** iteration.
+- Current UI includes:
+  - upload area with drag-and-drop and click-to-select behavior
+  - left panel showing "Last uploaded documents"
+  - uploaded filename list (client-side state)
+
+### Frontend Architecture Decisions
+
+- Upload UI has been componentized into:
+  - `frontend/src/components/UploadPanel.jsx`
+  - `frontend/src/components/RecentDocumentsPanel.jsx`
+  - `frontend/src/components/DocumentPreview.jsx`
+  - `frontend/src/components/UploadResultCard.jsx`
+- `frontend/src/App.jsx` acts as composition/layout container and shared state owner.
+- API integration is isolated in `frontend/src/hooks/uploadDocument.js`.
+- Keep this split for future features (upload status, API integration, previews).
+
+### Styling and Design Constraints
+
+- Required palette:
+  - `#ffefeb` main background
+  - `#fd4d0d` primary actions/details
+  - `#fae0ff` secondary soft accent
+  - `#3898ff` info/secondary accent
+- Title font stack:
+  - `"ESRebondGrotesque","Arial",sans-serif`
+- Main upload title text:
+  - `"Upload medical record documents"`
+- Layout target:
+  - left/right 2:8 proportion (implemented via CSS grid `2fr 8fr`)
+
+### Frontend Library Choices
+
+- UI framework: `react-bootstrap`
+- Icons: `bootstrap-icons`
+- Base styles: `bootstrap` CSS imported in `src/main.jsx`
+
+### Testing Decisions
+
+- Frontend integration tests (`frontend/src/App.test.jsx`) cover:
+  - heading + empty state
+  - upload selection/list update
+  - metadata rendering from successful API response
+  - metadata fallback when preview text is empty
+  - unsupported file fallback
+  - DOCX fallback
+  - API error display
+- Utility tests (`frontend/src/utils/filePreview.test.js`) validate file-type classification.
+- E2E smoke tests (`frontend/tests/e2e/upload-smoke.spec.js`) cover:
+  - successful TXT upload -> metadata visible
+  - API failure -> upload error visible
+
+### Docker/Compose Safety Notes for FE Dev
+
+- Frontend runs with bind mount (`./frontend:/app`) plus named volume for `node_modules`.
+- To avoid missing-dependency issues after adding packages, compose command checks required modules and runs `npm ci` when needed.
+- If stale module volume causes import resolution errors, use:
+  - `docker compose down -v`
+  - `docker compose up --build`
+
+### Backend Milestone 2 Status
+
+- Upload endpoint implemented at `POST /api/v1/documents/upload`.
+- Endpoint returns quick metadata:
+  - `filename`
+  - `content_type`
+  - `size_bytes`
+  - `text_preview`
+- API routes are modularized:
+  - `backend/app/api/routes/health.py`
+  - `backend/app/api/routes/documents.py`
+- Centralized error handling implemented:
+  - app-level `AppError`
+  - global handlers for app + validation errors
+  - standardized payload: `{"error": {"code": "...", "message": "..."}}`
+- Centralized logging utility implemented and used by upload route.
+- Backend tests include:
+  - health endpoint
+  - upload success
+  - empty upload error
+  - missing file validation error
