@@ -1,160 +1,167 @@
 # HappyVet Pulse Documentation
 
-## Milestone 1 Definition
+## TL;DR
 
-Milestone 1 establishes the technical foundation of the project with a lean, runnable baseline for both backend and frontend.
+HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 
-### Scope Completed
+1. Upload fragmented medical documents
+2. Extract and structure clinically useful data
+3. Review and correct extracted fields in the UI
 
-- Set up backend project skeleton with FastAPI entrypoint.
-- Set up frontend project skeleton with React + Vite entrypoint.
-- Added minimal backend API shell with `GET /health`.
-- Added minimal frontend app shell displaying `HappyVet Pulse`.
-- Added Dockerfiles for backend and frontend services.
-- Added `docker-compose.yml` for local multi-service orchestration.
-- Added test infrastructure:
-  - Backend: `pytest` with health endpoint test.
-  - Frontend: `vitest` + React Testing Library with UI text test.
-- Added CI workflow (GitHub Actions) to run backend and frontend tests on push and pull request.
+### Iteration snapshots
 
-### Milestone 1 Objective
+#### Milestone 1 - Shell foundation
+- Backend/frontend scaffold, Docker/Compose, test baseline, CI baseline.
 
-Provide a stable baseline that is easy to run locally, easy to validate automatically, and ready for parallel backend/frontend feature development in upcoming milestones.
+#### Milestone 2 - Upload + preview + API wiring
+- Upload UI, document preview, metadata endpoint integration, layered tests.
 
-## Milestone 2 Definition
+![Milestone 2 Upload UI](docs/images/milestone2.png)
 
-Milestone 2 introduces the first functional upload flow, with a simple UI and API handshake, plus stronger operational quality through testing, logging, and error handling.
+#### Milestone 3 - Structured record baseline (in progress)
+- Backend medical-record schema + frontend read-only structured render.
+- Mock scan endpoint + Scan button to validate end-to-end model rendering.
+- CORS enabled for local FE dev origin.
+- Shared JSON Schema contract validation on both backend and frontend tests.
 
-### Scope Target
+---
 
-- Build a simple frontend upload interface using **React-Bootstrap**.
-- Use icons via **FontAwesome** or **Bootstrap Icons**.
-- Add visual theming with the following palette:
-  - Main light background: `#ffefeb`
-  - Primary buttons/details: `#fd4d0d`
-  - Secondary accents: `#fae0ff`
-  - Info/highlight accents: `#3898ff`
-- Implement a backend upload endpoint that:
-  - receives a file
-  - returns simple metadata (initially file size)
-- Keep the end-to-end interaction intentionally minimal and reliable.
+## Standard Plan and Implementation Notes
 
-### API Goal (MVP)
+## Milestone 1
 
-- Add a basic endpoint for file upload (multipart form-data).
-- Validate request and return a simple JSON response including file size.
-- Return meaningful HTTP status codes for invalid uploads.
+### Goal
+Establish a runnable baseline for parallel backend/frontend development.
 
-### Quality Requirements
+### Scope
+- FastAPI app shell with `GET /health`.
+- React + Vite app shell.
+- Dockerfiles + `docker-compose.yml`.
+- Initial backend/frontend tests.
+- GitHub Actions for automated checks.
 
-- Expand tests for both backend and frontend:
-  - Backend: upload endpoint success and basic validation/error path.
-  - Frontend: upload UI rendering and basic interaction flow.
-- Improve logging:
-  - structured, readable logs for upload attempts and outcomes.
-  - clear log levels for info vs error cases.
-- Improve error handling:
-  - predictable API error responses.
-  - user-friendly UI error messages for failed upload attempts.
+### Delivered
+- Working local stack and CI baseline.
+- Basic quality gates to support next milestones safely.
 
-### Milestone 2 Objective
+### Testing and CI
+- Backend test coverage for health baseline.
+- Frontend test coverage for shell rendering baseline.
+- CI workflow running backend + frontend tests on `push` and `pull_request`.
 
-Deliver the first usable upload vertical slice with a styled UI and a simple backend processing response, while improving reliability through test coverage and clearer runtime diagnostics.
+### Next step
+- Build first vertical slice for document upload and metadata wiring.
 
-### Milestone 2 - UI Progress (Implemented)
+## Milestone 2
 
-#### Components
+### Goal
+Deliver first end-to-end upload vertical slice with robust UX and validation signals.
 
-- `UploadPanel`: drag-and-drop and click-to-select area for single file selection.
-- `RecentDocumentsPanel`: left panel with "Last uploaded documents" and uploaded filename list.
-- `DocumentPreview`: conditional preview renderer shown after file selection/upload.
-- `App`: composition container with 2/8 layout and shared state orchestration.
+### Scope
+- Build upload UI with React-Bootstrap and Bootstrap Icons.
+- Add backend upload endpoint returning lightweight metadata.
+- Wire FE upload action to backend response rendering.
+- Improve reliability through error handling, logging, and tests.
 
-#### UI Functionality
+### Delivered / Implementation
+- Backend:
+  - Endpoint: `POST /api/v1/documents/upload`
+  - Input: multipart file (`file`)
+  - Output:
+    - `filename`
+    - `content_type`
+    - `size_bytes`
+    - `text_preview`
+  - Architecture improvements:
+    - modular routes (`health`, `documents`)
+    - centralized errors (`AppError` + global handlers)
+    - standardized error payload: `{"error":{"code":"...","message":"..."}}`
+    - centralized logging utility used in upload flow
+- Frontend:
+  - Component architecture:
+    - `UploadPanel`
+    - `RecentDocumentsPanel`
+    - `DocumentPreview`
+    - `UploadResultCard`
+    - `App` as orchestration layer
+  - Upload/preview behavior:
+    - click-to-select + drag/drop
+    - supported preview: image, PDF, TXT
+    - DOCX explicit fallback
+    - unsupported file fallback
+  - API wiring:
+    - `uploadDocument` hook
+    - metadata card from API response
+    - upload loading/error states
+  - UI consistency:
+    - centralized strings (`uiContent.json`)
+    - centralized theme/tokens (`uiTheme.js`)
+    - runtime UI content validation
+  - Environment:
+    - `BACKEND_API_BASE_URL` for frontend API target
 
-- Upload area supports:
-  - clicking inside the dropzone
-  - selecting a file from the file picker
-  - dropping a file into the dropzone
-- Layout is split into:
-  - left `2/10` panel for recent files
-  - right `8/10` area for upload + preview
-- Title updated to: `Upload medical record documents`
-- Styling uses React-Bootstrap + Bootstrap Icons with configured palette:
-  - `#ffefeb`, `#fd4d0d`, `#fae0ff`, `#3898ff`
-- Document preview supports:
-  - images: inline image preview
-  - PDF: iframe preview
-  - TXT: text content preview
-  - DOCX: explicit fallback card (not supported yet)
-  - unsupported formats: error fallback card
-
-#### Testing (Frontend)
-
-- Added/expanded tests with Vitest + React Testing Library:
-  - renders main upload title and empty state
-  - file selection updates selected state and recent list
-  - unsupported file type fallback renders correctly
-  - DOCX fallback renders correctly
-- Added utility tests for preview-type classification logic.
-
-#### Cleanups / Refactors Completed
-
-- Centralized UI strings in `frontend/src/data/uiContent.json` (single source of truth).
-- Centralized shared styles and theme tokens in `frontend/src/styles/uiTheme.js`.
-- Extracted file preview type detection to `frontend/src/utils/filePreview.js`.
-- Added preview-type constants in `frontend/src/constants/previewTypes.js`.
-- Decomposed `DocumentPreview` into focused renderer subcomponents.
-- Moved preview dimensions/padding into theme tokens.
-- Added runtime validation for UI content contract in `frontend/src/utils/validateUiContent.js`.
-
-### Milestone 2 - Backend/API Progress (Implemented)
-
-#### API Endpoint
-
-- Added upload endpoint: `POST /api/v1/documents/upload`
-- Input: multipart file (`file`)
-- Response metadata:
-  - `filename`
-  - `content_type`
-  - `size_bytes`
-  - `text_preview` (quick UTF-8 decoded preview)
-
-#### Backend Architecture Improvements
-
-- Modularized routes:
-  - `backend/app/api/routes/health.py`
-  - `backend/app/api/routes/documents.py`
-- Added centralized error handling:
-  - `AppError` for application-level errors
-  - global handlers for app and validation errors
-  - standardized error payload: `{"error":{"code":"...","message":"..."}}`
-- Added centralized logging utility and upload route logging.
-
-### Milestone 2 - FE <-> API Wiring (Implemented)
-
-- Frontend upload flow now calls backend endpoint on file selection.
-- Added API client hook: `frontend/src/hooks/uploadDocument.js`
-- Added API metadata UI component: `frontend/src/components/UploadResultCard.jsx`
-- Added upload status/error UI states in upload panel.
-- Wired frontend API base URL through env variable:
-  - `BACKEND_API_BASE_URL`
-  - documented in `frontend/.env.example` and `README.md`
-
-### Milestone 2 - Testing and CI Status (Current)
-
-- Backend tests:
-  - health check
+### Testing and CI
+- Backend:
+  - health
   - upload success
-  - empty upload error
-  - missing-file validation error
-- Frontend tests:
-  - integration scenarios for upload UI + API metadata/error rendering
-  - utility tests for file preview classification
-- E2E smoke tests (Playwright):
+  - empty file error
+  - missing file validation
+- Frontend:
+  - integration tests for upload + metadata/error rendering
+  - utility tests for preview classification
+- E2E (Playwright smoke):
   - successful TXT upload metadata visibility
   - API failure upload error visibility
-- CI pipeline (`.github/workflows/tests.yml`) runs:
+- CI pipeline:
   - backend tests
   - frontend unit/integration tests
-  - frontend e2e smoke tests (after FE tests pass)
+  - frontend E2E smoke tests (depends on FE tests)
+
+### Next step
+- Introduce structured medical record model and read-only render baseline.
+
+## Milestone 3
+
+### Goal
+Prepare the medical record structured model and validate model rendering in the current UI.
+
+### Scope
+- Define canonical medical record draft schema on backend.
+- Mirror schema shape in frontend state.
+- Render read-only structured medical record panel.
+- Add mocked scan round-trip (backend -> frontend display).
+- Add contract guards to prevent FE/BE model drift.
+- Keep persistence/edit-save out of scope.
+
+### Delivered / Implementation
+- Backend:
+  - Canonical schema at `backend/app/schemas/medical_record.py`
+  - Mock scan endpoint at `POST /api/v1/documents/scan`
+  - CORS enabled for local FE dev origins (`localhost:5173`, `127.0.0.1:5173`)
+- Frontend:
+  - Read-only panel component: `frontend/src/components/MedicalRecordPanel.jsx`
+  - State bootstrapping:
+    - `frontend/src/data/medicalRecordEmptyState.js`
+    - `frontend/src/data/medicalRecordMockData.js`
+    - `frontend/src/data/medicalRecordState.js`
+  - Production-safety rule: mock medical data never shown in production builds.
+  - `Scan` button in upload panel triggers backend scan and updates medical record panel.
+- Shared contract:
+  - JSON Schema contract at `contracts/medical_record.schema.json`
+  - Backend validates `/scan` payload against shared schema in tests.
+  - Frontend validates empty/mock states against same schema with Ajv.
+
+### Testing and CI
+- Backend tests cover:
+  - scan success payload shape
+  - scan response Pydantic validity
+  - scan response JSON Schema contract validity
+  - CORS preflight behavior for frontend dev origin
+- Frontend tests cover:
+  - successful scan updates rendered record data
+  - scan error rendering
+  - shared JSON Schema contract checks for empty/mock states
+- Existing CI test jobs run these checks automatically.
+
+### Next step
+- Move from read-only state to per-field editable review workflow while preserving schema parity and traceability metadata.

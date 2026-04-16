@@ -13,9 +13,29 @@ export async function uploadDocument(file) {
     let detail = "Upload failed.";
     try {
       const errorPayload = await response.json();
-      detail = errorPayload.detail || detail;
+      detail = errorPayload.error?.message || errorPayload.detail || detail;
     } catch {
       // Keep default error detail if parsing fails.
+    }
+
+    throw new Error(detail);
+  }
+
+  return response.json();
+}
+
+export async function scanDocument() {
+  const response = await fetch(`${API_BASE_URL}/api/v1/documents/scan`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    let detail = "Scan failed.";
+    try {
+      const errorPayload = await response.json();
+      detail = errorPayload.error?.message || errorPayload.detail || detail;
+    } catch {
+      // Keep default message if parsing fails.
     }
 
     throw new Error(detail);

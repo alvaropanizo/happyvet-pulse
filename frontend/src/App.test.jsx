@@ -6,6 +6,8 @@ import uiContent from "./data/uiContent.json";
 
 describe("App", () => {
   beforeEach(() => {
+    vi.stubEnv("VITE_USE_MEDICAL_RECORD_MOCK", "true");
+
     if (!global.fetch) {
       global.fetch = vi.fn();
     }
@@ -23,6 +25,7 @@ describe("App", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     cleanup();
   });
 
@@ -32,6 +35,10 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: uiContent.app.uploadTitle }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: uiContent.app.medicalRecord.title }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("ALYA")).toBeInTheDocument();
     expect(screen.getByText(uiContent.recentDocumentsPanel.emptyState)).toBeInTheDocument();
   });
 
@@ -155,6 +162,72 @@ describe("App", () => {
       expect(
         screen.getByText(
           `${uiContent.uploadPanel.uploadErrorPrefix} Uploaded file is empty.`,
+          { exact: false },
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("replaces medical record panel data when scan succeeds", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        record_id: "rec_scan_001",
+        source_documents: [],
+        patient: {
+          name: { value: "MARLEY", confidence: 0.99, edited: false },
+          species: { value: "Canino", confidence: 0.98, edited: false },
+          breed: { value: "Labrador Retriever", confidence: 0.97, edited: false },
+          sex: { value: "Macho", confidence: 0.99, edited: false },
+          birth_date: { value: "2019-10-04", confidence: 0.9, edited: false },
+          chip_id: { value: "941000024967769", confidence: 0.9, edited: false },
+          weight_kg: { value: "30", confidence: 0.8, edited: false },
+        },
+        owner: {
+          name: { value: "Beatriz Abarca", confidence: 0.9, edited: false },
+          address: { value: "Madrid", confidence: 0.8, edited: false },
+        },
+        timeline: [],
+        problem_list: [],
+        reminders: [],
+        review: {
+          status: "in_review",
+          edited_fields: [],
+          last_editor: "scan_service",
+          updated_at: null,
+        },
+      }),
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(screen.getByText("MARLEY")).toBeInTheDocument();
+      expect(screen.getByText("rec_scan_001")).toBeInTheDocument();
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/v1/documents/scan",
+      { method: "POST" },
+    );
+  });
+
+  it("shows scan error message when scan fails", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({
+        error: { code: "SCAN_FAILED", message: "Could not parse selected document." },
+      }),
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          `${uiContent.uploadPanel.scanErrorPrefix} Could not parse selected document.`,
           { exact: false },
         ),
       ).toBeInTheDocument();

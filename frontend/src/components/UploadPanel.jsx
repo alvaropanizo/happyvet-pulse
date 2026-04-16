@@ -3,7 +3,17 @@ import { Button, Card } from "react-bootstrap";
 
 import { previewStyles, sharedStyles, uploadStyles } from "../styles/uiTheme";
 
-function UploadPanel({ onFileSelected, selectedFileName, title, content, isUploading, uploadError }) {
+function UploadPanel({
+  onFileSelected,
+  onScan,
+  selectedFileName,
+  title,
+  content,
+  isUploading,
+  uploadError,
+  isScanning,
+  scanError,
+}) {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -58,6 +68,16 @@ function UploadPanel({ onFileSelected, selectedFileName, title, content, isUploa
           >
             {content.selectButton}
           </Button>
+          <Button
+            type="button"
+            style={{ ...uploadStyles.button, marginLeft: "12px" }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onScan();
+            }}
+          >
+            {content.scanButton}
+          </Button>
 
           {selectedFileName ? (
             <p className="mt-3 mb-0" style={uploadStyles.bodyText}>
@@ -74,6 +94,18 @@ function UploadPanel({ onFileSelected, selectedFileName, title, content, isUploa
           {uploadError ? (
             <p className="mt-2 mb-0" style={previewStyles.errorText}>
               {content.uploadErrorPrefix} {uploadError}
+            </p>
+          ) : null}
+
+          {isScanning ? (
+            <p className="mt-2 mb-0" style={uploadStyles.bodyText}>
+              {content.scanningMessage}
+            </p>
+          ) : null}
+
+          {scanError ? (
+            <p className="mt-2 mb-0" style={previewStyles.errorText}>
+              {content.scanErrorPrefix} {scanError}
             </p>
           ) : null}
         </Card.Body>
