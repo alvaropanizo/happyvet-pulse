@@ -7,16 +7,45 @@
       "contentTypeLabel": "Content type:",
       "fileSizeLabel": "Size (bytes):",
       "textPreviewLabel": "Text preview:"
+    },
+    "medicalRecord": {
+      "title": "Medical record draft (read-only)",
+      "recordIdLabel": "Record id:",
+      "reviewStatusLabel": "Review status:",
+      "patientSectionTitle": "Patient",
+      "patientNameLabel": "Name:",
+      "speciesLabel": "Species:",
+      "breedLabel": "Breed:",
+      "sexLabel": "Sex:",
+      "chipLabel": "Chip:",
+      "ownerSectionTitle": "Owner",
+      "ownerNameLabel": "Owner name:",
+      "ownerAddressLabel": "Owner address:",
+      "summarySectionTitle": "Summary",
+      "timelineCountLabel": "Timeline events:",
+      "problemsCountLabel": "Problems:",
+      "remindersCountLabel": "Reminders:",
+      "sourceDocsCountLabel": "Source documents:",
+      "attachmentsCountLabel": "Attachments:",
+      "recentTimelineTitle": "Recent timeline events",
+      "problemListTitle": "Problem list",
+      "remindersTitle": "Reminders",
+      "statusLabel": "Status:",
+      "clinicLabel": "Clinic:",
+      "dueDateLabel": "Due date:"
     }
   },
   "uploadPanel": {
     "dropInstruction": "Drop file here or click to select",
     "supportNote": "Supported now: single file selection for the upcoming upload flow.",
     "selectButton": "Select file",
+    "scanButton": "Scan",
     "fileInputAriaLabel": "File selector",
     "selectedPrefix": "Selected:",
     "uploadingMessage": "Uploading file to API...",
-    "uploadErrorPrefix": "Upload error:"
+    "uploadErrorPrefix": "Upload error:",
+    "scanningMessage": "Scanning document into structured record...",
+    "scanErrorPrefix": "Scan error:"
   },
   "recentDocumentsPanel": {
     "title": "Last uploaded documents",

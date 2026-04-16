@@ -16,6 +16,8 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
 
 ```text
 /happyvet-pulse
+  /contracts
+    medical_record.schema.json
   /backend
     /app
       __init__.py
@@ -29,6 +31,7 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
         logging.py
       /schemas
         error.py
+        medical_record.py
       main.py
     /tests
       test_health.py
@@ -45,14 +48,20 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
       App.jsx
       main.jsx
       App.test.jsx
+      /contracts
+        medicalRecordContract.test.js
       /constants
         previewTypes.js
       /components
         DocumentPreview.jsx
+        MedicalRecordPanel.jsx
         RecentDocumentsPanel.jsx
         UploadPanel.jsx
         UploadResultCard.jsx
       /data
+        medicalRecordEmptyState.js
+        medicalRecordMockData.js
+        medicalRecordState.js
         uiContent.json
       /hooks
         uploadDocument.js
@@ -96,6 +105,7 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
 - Keep extraction providers replaceable (strategy pattern or adapter boundary).
 - Treat uncertain extraction output as first-class (confidence fields, nullable values, review flags).
 - Keep strict schema contracts between BE and FE (versioned and documented).
+- Use shared JSON Schema contract as the cross-stack baseline (`contracts/medical_record.schema.json`).
 - Prioritize deterministic behavior, observability, and error transparency.
 
 ## Suggested Backend Direction
@@ -173,6 +183,7 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - `cd frontend`
   - `npm install`
   - `npm run test`
+  - `npm run test:e2e`
 
 ### CI / Pipeline Status
 
@@ -275,3 +286,79 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - upload success
   - empty upload error
   - missing file validation error
+
+## Milestone 3 Decisions (Current)
+
+### Data Model Baseline
+
+- Canonical backend draft schema added at:
+  - `backend/app/schemas/medical_record.py`
+- Shared JSON Schema contract added at:
+  - `contracts/medical_record.schema.json`
+- Frontend matching state sources added at:
+  - `frontend/src/data/medicalRecordEmptyState.js`
+  - `frontend/src/data/medicalRecordMockData.js`
+  - `frontend/src/data/medicalRecordState.js`
+- Current scope is intentionally **in-app state only** (no persistence/save flow yet).
+
+### Frontend Milestone 3 UI Baseline
+
+- Added read-only structured panel:
+  - `frontend/src/components/MedicalRecordPanel.jsx`
+- `frontend/src/App.jsx` now wires:
+  - upload flow state
+  - upload metadata state
+  - medical record draft state (read-only render for now)
+  - scan action (`POST /api/v1/documents/scan`) to refresh displayed structured record
+- UI content keys for structured panel are centralized in:
+  - `frontend/src/data/uiContent.json`
+
+### Milestone 3 Development Guidance
+
+- Keep schema alignment between:
+  - BE model (`backend/app/schemas/medical_record.py`)
+  - shared JSON Schema (`contracts/medical_record.schema.json`)
+  - FE state seeds (`medicalRecordEmptyState.js`, `medicalRecordMockData.js`)
+- Favor incremental editable fields over full-form editing in one step.
+- Keep traceability fields (`source_span`, `document_id`) first-class in future extraction wiring.
+- Persistence is explicitly out-of-scope until a later milestone.
+- Local FE->BE integration expects CORS allowance for:
+  - `http://localhost:5173`
+  - `http://127.0.0.1:5173`
+
+### Contract Testing Baseline
+
+- Backend contract checks (`backend/tests/test_upload.py`):
+  - scan payload validates against Pydantic schema
+  - scan payload validates against shared JSON Schema
+- Frontend contract checks (`frontend/src/contracts/medicalRecordContract.test.js`):
+  - empty state validates against shared JSON Schema
+  - mock state validates against shared JSON Schema
+- Keep contract strict enough for compatibility, but avoid over-constraining future optional fields.
+
+## How to Update Docs Each Milestone
+
+Use this checklist at the end of every milestone implementation:
+
+- Update `DOCUMENTATION.md`:
+  - Add/update TL;DR milestone snapshot.
+  - Add new milestone section with standard headings:
+    - Goal
+    - Scope
+    - Delivered/Implementation
+    - Testing and CI
+    - Next step
+  - Add/update milestone screenshots under `docs/images/` and reference them.
+- Update `AGENT.md`:
+  - Refresh repository structure if files/folders changed.
+  - Update milestone decision sections with current architecture choices.
+  - Mark pending items as implemented when completed.
+  - Keep local run/test commands current.
+- Update `README.md` only when run/configuration instructions changed.
+- Ensure docs and code match:
+  - API endpoints and payload fields.
+  - FE env vars and scripts.
+  - CI jobs and dependencies.
+- Final quality check:
+  - Verify markdown links and image paths render on GitHub.
+  - Keep wording concise and avoid duplicate/contradictory sections.
