@@ -10,7 +10,15 @@ def extract_docx(content: bytes) -> str:
     from docx import Document  # type: ignore
 
     doc = Document(BytesIO(content))
-    return "\n".join(paragraph.text for paragraph in doc.paragraphs).strip()
+    chunks: list[str] = [paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()]
+    # Include table cell text so docx extraction fidelity is closer to source.
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                value = cell.text.strip()
+                if value:
+                    chunks.append(value)
+    return "\n".join(chunks).strip()
 
 
 def extract_pdf_text_layer(content: bytes) -> str:

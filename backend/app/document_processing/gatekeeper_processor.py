@@ -14,7 +14,13 @@ from app.document_processing.extractors import (
     extract_txt,
 )
 from app.document_processing.models import DocumentProcessingResult, ParsingMetadata
-from app.document_processing.quality_gate import ExtractionSignals, MIN_MEANINGFUL_CHARS, is_extraction_sufficient
+from app.document_processing.quality_gate import (
+    ExtractionSignals,
+    MIN_MEANINGFUL_CHARS,
+    get_fidelity_signals,
+    is_extraction_sufficient,
+    is_fidelity_sufficient,
+)
 
 
 class GatekeeperProcessor(DocumentProcessor):
@@ -35,19 +41,22 @@ class GatekeeperProcessor(DocumentProcessor):
         suffix = self._best_effort_suffix(file)
 
         if suffix == ".txt":
+            source_text = content.decode("utf-8", errors="replace")
+            extracted = extract_txt(content)
             return self._build_result_from_text(
-                text=extract_txt(content),
+                text=extracted,
                 extraction_method="fast_path",
                 latency_ms=self._elapsed_ms(started),
-                signals=ExtractionSignals(page_count=1, image_count=0, table_count=0),
+                fidelity_source_text=source_text,
             )
 
         if suffix == ".docx":
+            extracted = extract_docx(content)
             return self._build_result_from_text(
-                text=extract_docx(content),
+                text=extracted,
                 extraction_method="fast_path",
                 latency_ms=self._elapsed_ms(started),
-                signals=ExtractionSignals(page_count=1, image_count=0, table_count=0),
+                fidelity_source_text=extracted,
             )
 
         if suffix == ".pdf":
@@ -90,9 +99,14 @@ class GatekeeperProcessor(DocumentProcessor):
         text: str,
         extraction_method: str,
         latency_ms: int,
-        signals: ExtractionSignals,
+        signals: ExtractionSignals | None = None,
+        fidelity_source_text: str | None = None,
     ) -> DocumentProcessingResult:
-        enough = is_extraction_sufficient(text, signals)
+        enough = (
+            is_fidelity_sufficient(text, get_fidelity_signals(fidelity_source_text))
+            if fidelity_source_text is not None
+            else is_extraction_sufficient(text, signals)
+        )
         return self._build_result(
             text=text,
             extraction_method=extraction_method,
