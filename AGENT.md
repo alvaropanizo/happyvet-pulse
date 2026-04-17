@@ -25,6 +25,15 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
         /routes
           documents.py
           health.py
+      /document_processing
+        __init__.py
+        base.py
+        gatekeeper_processor.py
+        extractors.py
+        quality_gate.py
+        factory.py
+        medical_record_mapper.py
+        models.py
       /core
         error_handlers.py
         exceptions.py
@@ -74,7 +83,11 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
         validateUiContent.js
     /tests
       /e2e
+        /fixtures
         upload-smoke.spec.js
+        scan-real.spec.js
+    /scripts
+      check-backend-health.mjs
     .env.example
     Dockerfile
     package.json
@@ -87,7 +100,7 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
 
 - **Backend agent (FastAPI/Python)** owns:
   - Upload APIs and file lifecycle
-  - Document text extraction pipeline (parser-first, OCR-second)
+  - Document text extraction pipeline and parser abstraction boundaries
   - Data structuring and schema validation
   - API contracts consumed by frontend
   - Test coverage for extraction and transformation logic
@@ -335,6 +348,100 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - empty state validates against shared JSON Schema
   - mock state validates against shared JSON Schema
 - Keep contract strict enough for compatibility, but avoid over-constraining future optional fields.
+
+## Milestone 4 Decisions (Current)
+
+### Intelligent Document Ingestion Pivot (Performance-first)
+
+- `POST /api/v1/documents/scan` now accepts multipart `UploadFile`.
+- Parsing pipeline keeps the swappable abstraction:
+  - `backend/app/document_processing/base.py` (`DocumentProcessor`)
+  - default implementation is now a gatekeeper processor (implemented in `backend/app/document_processing/gatekeeper_processor.py`)
+  - selector/factory: `backend/app/document_processing/factory.py`
+- Gatekeeper routing rules:
+  - `.txt` -> native decode (fast path)
+  - `.docx` -> `python-docx` parse (fast path)
+  - `.pdf` -> `PyMuPDF` text extraction first, then OCR fallback when insufficient
+  - images (`.jpg`, `.jpeg`, `.png`, `.webp`) -> OCR fallback path
+- Decision-maker heuristic (`is_extraction_sufficient`):
+  - reject extraction when text length is `< 150`
+  - reject extraction when no medical keyword match is found (`patient`, `breed`, `clinical`, `history`, `weight`)
+  - rejected fast-path output triggers OCR fallback automatically
+- Output mapping remains unchanged:
+  - extracted text is mapped to `MedicalRecordDraft.source_documents[].raw_text`
+  - mapper: `backend/app/document_processing/medical_record_mapper.py`
+
+### Parsing Metadata and Error Policy
+
+- Parsing metadata contract is explicit and now includes routing/timing:
+  - `engine`
+  - `extraction_method` (`fast_path` | `tesseract_fallback`)
+  - `latency_ms`
+  - `extracted_char_count`
+  - `meaningful_text`
+  - `integrity_score`
+  - `reason` (optional)
+- Low-integrity extraction handling remains:
+  - endpoint returns `PARSING_INTEGRITY_LOW` (422)
+
+### Dependency / Docker Decisions (Milestone 4 Pivot)
+
+- Heavy ML OCR dependency chains were removed to reduce build/runtime cost.
+- Migration note:
+  - `DOCUMENT_PROCESSOR` now only supports `gatekeeper`.
+  - legacy values are no longer accepted and will raise `UNSUPPORTED_DOCUMENT_PROCESSOR`.
+- Backend dependencies now include:
+  - `PyMuPDF`
+  - `python-docx`
+  - `pdf2image`
+  - `pytesseract`
+- Backend Docker strategy:
+  - keeps `python:3.11-slim`
+  - uses multi-stage build to keep runtime image leaner
+  - installs runtime system libs and OCR/PDF binaries:
+    - `libgl1`, `libglib2.0-0`
+    - `tesseract-ocr`, `libtesseract-dev`, `poppler-utils`
+
+### Contract and Testing Coverage
+
+- Shared contract file:
+  - `contracts/medical_record.schema.json`
+  - `parsing_metadata` now requires `extraction_method` and `latency_ms`
+- Backend tests (`backend/tests/test_upload.py`) cover:
+  - multipart scan ingestion path
+  - mapped raw text in schema payload
+  - parsing metadata in scan response
+  - low-quality parsing error behavior
+  - CORS preflight
+- Frontend tests (`frontend/src/App.test.jsx`) cover:
+  - scan requires selected file
+  - multipart scan request shape (`FormData` with `file`)
+  - scan success render
+  - scan parsing error render
+- Frontend contract tests (`frontend/src/contracts/medicalRecordContract.test.js`) validate the updated envelope metadata contract.
+
+### Real E2E Validation (Milestone 4)
+
+- Real scan E2E suite:
+  - `frontend/tests/e2e/scan-real.spec.js`
+- Fixture-driven scan files live in:
+  - `frontend/tests/e2e/fixtures/`
+- CI-safe committed fixtures live in:
+  - `frontend/tests/e2e/fixtures/CI/`
+- Supported fixture extensions for real scan tests:
+  - `.txt`, `.pdf`, `.docx`, `.png`, `.jpg`, `.jpeg`, `.webp`
+- Fail-fast pre-check before running real scan E2E:
+  - `frontend/scripts/check-backend-health.mjs`
+  - `npm run test:e2e:real` now fails with a clear message when backend healthcheck is unavailable instead of silently skipping.
+- CI-focused real scan command:
+  - `npm run test:e2e:real:ci`
+  - uses `E2E_FIXTURES_DIR=tests/e2e/fixtures/CI`
+- Recommended local sequence for real scan E2E:
+  - `docker compose up --build`
+  - `cd frontend && npm run test:e2e:real`
+- GitHub Actions real scan job:
+  - `.github/workflows/tests.yml` -> `frontend-e2e-real-ci`
+  - starts backend service, waits for `/health`, then executes `npm run test:e2e:real:ci`
 
 ## How to Update Docs Each Milestone
 

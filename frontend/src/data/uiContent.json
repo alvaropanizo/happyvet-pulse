@@ -1,6 +1,13 @@
 {
   "app": {
     "uploadTitle": "Upload medical record documents",
+    "resetFlow": {
+      "buttonAriaLabel": "Reset working page",
+      "confirmTitle": "Reset current page",
+      "confirmMessage": "You will loose changes in your working page, are you sure",
+      "confirmYes": "Yes",
+      "confirmNo": "No"
+    },
     "uploadResult": {
       "title": "Upload result metadata",
       "fileNameLabel": "File name:",
@@ -30,6 +37,8 @@
       "recentTimelineTitle": "Recent timeline events",
       "problemListTitle": "Problem list",
       "remindersTitle": "Reminders",
+      "rawExtractedTextTitle": "Raw extracted text",
+      "rawExtractedTextEmpty": "No extracted text available.",
       "statusLabel": "Status:",
       "clinicLabel": "Clinic:",
       "dueDateLabel": "Due date:"

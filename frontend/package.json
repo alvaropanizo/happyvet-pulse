@@ -10,6 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "pretest:e2e:real": "node scripts/check-backend-health.mjs",
+    "test:e2e:real": "playwright test tests/e2e/scan-real.spec.js",
+    "pretest:e2e:real:ci": "node scripts/check-backend-health.mjs",
+    "test:e2e:real:ci": "E2E_FIXTURES_DIR=tests/e2e/fixtures/CI playwright test tests/e2e/scan-real.spec.js",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {

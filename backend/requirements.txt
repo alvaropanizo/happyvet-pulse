@@ -4,3 +4,7 @@ pytest
 httpx
 python-multipart
 jsonschema
+PyMuPDF
+python-docx
+pytesseract
+pdf2image

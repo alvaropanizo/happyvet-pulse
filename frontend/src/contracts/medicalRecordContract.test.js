@@ -26,11 +26,49 @@ describe("medical record shared contract", () => {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   const validate = ajv.compile(schema);
 
-  it("keeps empty frontend medical record state aligned with contract", () => {
-    expect(() => assertValidContract(validate, medicalRecordEmptyState)).not.toThrow();
+  function asEnvelope(medicalRecord) {
+    return {
+      medical_record: medicalRecord,
+      parsing_metadata: {
+        engine: "gatekeeper",
+        extraction_method: "fast_path",
+        latency_ms: 120,
+        extracted_char_count: 1200,
+        meaningful_text: true,
+        integrity_score: 0.95,
+        reason: null,
+      },
+      processor_version: null,
+      warnings: [],
+      timings_ms: null,
+    };
+  }
+
+  it("keeps empty frontend medical record state aligned with envelope contract", () => {
+    expect(() => assertValidContract(validate, asEnvelope(medicalRecordEmptyState))).not.toThrow();
   });
 
-  it("keeps mock frontend medical record state aligned with contract", () => {
-    expect(() => assertValidContract(validate, medicalRecordMockData)).not.toThrow();
+  it("keeps mock frontend medical record state aligned with envelope contract", () => {
+    expect(() => assertValidContract(validate, asEnvelope(medicalRecordMockData))).not.toThrow();
+  });
+
+  it("accepts payloads with optional metadata fields populated", () => {
+    const payloadWithParsingMetadata = {
+      medical_record: medicalRecordMockData,
+      parsing_metadata: {
+        engine: "gatekeeper",
+        extraction_method: "tesseract_fallback",
+        latency_ms: 800,
+        extracted_char_count: 1240,
+        meaningful_text: true,
+        integrity_score: 0.96,
+        reason: null,
+      },
+      processor_version: "2.0.0",
+      warnings: ["TABLE_PARSING_PARTIAL"],
+      timings_ms: 183.2,
+    };
+
+    expect(() => assertValidContract(validate, payloadWithParsingMetadata)).not.toThrow();
   });
 });

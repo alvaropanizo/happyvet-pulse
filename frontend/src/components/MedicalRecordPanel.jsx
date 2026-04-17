@@ -13,8 +13,21 @@ function totalAttachments(sourceDocuments) {
   );
 }
 
+function getRawExtractedText(sourceDocuments) {
+  return sourceDocuments?.[0]?.raw_text?.trim() ?? "";
+}
+
+function splitRawTextIntoParagraphs(rawText) {
+  return rawText
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.split("\n").map((line) => line.trim()).filter(Boolean).join("\n"))
+    .filter(Boolean);
+}
+
 function MedicalRecordPanel({ medicalRecord, content }) {
   const recentTimeline = medicalRecord.timeline.slice(0, 3);
+  const rawExtractedText = getRawExtractedText(medicalRecord.source_documents);
+  const rawParagraphs = splitRawTextIntoParagraphs(rawExtractedText);
 
   return (
     <Card style={{ ...sharedStyles.baseCard, marginTop: "16px" }}>
@@ -143,6 +156,38 @@ function MedicalRecordPanel({ medicalRecord, content }) {
             ))}
           </ul>
         )}
+
+        <details className="mt-3">
+          <summary style={{ ...sharedStyles.panelTitle, cursor: "pointer" }}>
+            {content.rawExtractedTextTitle}
+          </summary>
+          {rawParagraphs.length === 0 ? (
+            <p className="mt-2 mb-0" style={previewStyles.infoText}>
+              {content.rawExtractedTextEmpty}
+            </p>
+          ) : (
+            <div className="mt-2 d-flex flex-column gap-2">
+              {rawParagraphs.map((paragraph, index) => (
+                <pre
+                  key={`raw-text-${index}`}
+                  style={{
+                    margin: 0,
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: "#f8f9fa",
+                    border: "1px solid #e9ecef",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    fontSize: "0.9rem",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {paragraph}
+                </pre>
+              ))}
+            </div>
+          )}
+        </details>
       </Card.Body>
     </Card>
   );

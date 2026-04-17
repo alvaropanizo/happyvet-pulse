@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -29,20 +29,17 @@ describe("App", () => {
     cleanup();
   });
 
-  it("renders the expected title text", () => {
+  it("shows only upload panel on first load", () => {
     render(<App />);
 
     expect(
       screen.getByRole("heading", { name: uiContent.app.uploadTitle }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: uiContent.app.medicalRecord.title }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("ALYA")).toBeInTheDocument();
-    expect(screen.getByText(uiContent.recentDocumentsPanel.emptyState)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: uiContent.documentPreview.title })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
   });
 
-  it("updates selected and recent documents after file selection", async () => {
+  it("replaces upload panel with preview and scan button after selecting a file", async () => {
     render(<App />);
 
     const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
@@ -50,156 +47,62 @@ describe("App", () => {
 
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent(file.name);
-    expect(screen.getByText(uiContent.documentPreview.title)).toBeInTheDocument();
-    expect(screen.getByText(uiContent.uploadPanel.selectedPrefix, { exact: false })).toBeInTheDocument();
-
     await waitFor(() => {
-      expect(screen.getByText(uiContent.app.uploadResult.title)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton })).toBeInTheDocument();
     });
+    expect(screen.getAllByText(uiContent.documentPreview.title).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: uiContent.app.uploadTitle })).not.toBeInTheDocument();
   });
 
-  it("renders upload metadata values from successful API response", async () => {
+  it("shows structured card and hides preview after successful scan", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        filename: "lab-report.pdf",
-        content_type: "application/pdf",
-        size_bytes: 128,
-        text_preview: "Patient report preview",
+        medical_record: {
+          record_id: "rec_scan_001",
+          source_documents: [],
+          patient: {
+            name: { value: "MARLEY", confidence: 0.99, edited: false },
+            species: { value: "Canino", confidence: 0.98, edited: false },
+            breed: { value: "Labrador Retriever", confidence: 0.97, edited: false },
+            sex: { value: "Macho", confidence: 0.99, edited: false },
+            birth_date: { value: "2019-10-04", confidence: 0.9, edited: false },
+            chip_id: { value: "941000024967769", confidence: 0.9, edited: false },
+            weight_kg: { value: "30", confidence: 0.8, edited: false },
+          },
+          owner: {
+            name: { value: "Beatriz Abarca", confidence: 0.9, edited: false },
+            address: { value: "Madrid", confidence: 0.8, edited: false },
+          },
+          timeline: [],
+          problem_list: [],
+          reminders: [],
+          review: {
+            status: "in_review",
+            edited_fields: [],
+            last_editor: "scan_service",
+            updated_at: null,
+          },
+        },
+        parsing_metadata: {
+          engine: "gatekeeper",
+          extraction_method: "fast_path",
+          latency_ms: 100,
+          extracted_char_count: 500,
+          meaningful_text: true,
+          integrity_score: 1,
+          reason: null,
+        },
+        processor_version: null,
+        warnings: [],
+        timings_ms: null,
       }),
     });
 
     render(<App />);
-
     const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File(["pdf"], "lab-report.pdf", { type: "application/pdf" });
+    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
     fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => {
-      const metadataHeading = screen.getByRole("heading", { name: uiContent.app.uploadResult.title });
-      const metadataCard = metadataHeading.closest(".card");
-      expect(metadataCard).not.toBeNull();
-
-      const metadataScope = within(metadataCard);
-      expect(metadataScope.getByText("lab-report.pdf")).toBeInTheDocument();
-      expect(metadataScope.getByText("application/pdf")).toBeInTheDocument();
-      expect(metadataScope.getByText("128")).toBeInTheDocument();
-      expect(metadataScope.getByText("Patient report preview")).toBeInTheDocument();
-    });
-  });
-
-  it("renders text preview fallback when API returns empty preview", async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        filename: "scan.png",
-        content_type: "image/png",
-        size_bytes: 32,
-        text_preview: "",
-      }),
-    });
-
-    render(<App />);
-
-    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File(["img"], "scan.png", { type: "image/png" });
-    fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => {
-      const metadataHeading = screen.getByRole("heading", { name: uiContent.app.uploadResult.title });
-      const metadataCard = metadataHeading.closest(".card");
-      expect(metadataCard).not.toBeNull();
-
-      const metadataScope = within(metadataCard);
-      expect(metadataScope.getByText("scan.png")).toBeInTheDocument();
-      expect(metadataScope.getByText("-")).toBeInTheDocument();
-    });
-  });
-
-  it("shows unsupported preview fallback for unsupported files", async () => {
-    render(<App />);
-
-    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File(["binary"], "archive.zip", { type: "application/zip" });
-
-    fireEvent.change(input, { target: { files: [file] } });
-
-    expect(screen.getByText(uiContent.documentPreview.unsupportedTitle)).toBeInTheDocument();
-    expect(screen.getByText("zip")).toBeInTheDocument();
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-  });
-
-  it("shows docx fallback message for docx files", async () => {
-    render(<App />);
-
-    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File(["docx"], "medical-record.docx", {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
-
-    fireEvent.change(input, { target: { files: [file] } });
-
-    expect(screen.getByText(uiContent.documentPreview.docxUnsupported)).toBeInTheDocument();
-    expect(screen.getByText(uiContent.documentPreview.fileSelectedPrefix, { exact: false })).toBeInTheDocument();
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
-  });
-
-  it("shows API upload error message when upload fails", async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      json: async () => ({ detail: "Uploaded file is empty." }),
-    });
-
-    render(<App />);
-
-    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File([""], "empty.txt", { type: "text/plain" });
-
-    fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(
-          `${uiContent.uploadPanel.uploadErrorPrefix} Uploaded file is empty.`,
-          { exact: false },
-        ),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("replaces medical record panel data when scan succeeds", async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        record_id: "rec_scan_001",
-        source_documents: [],
-        patient: {
-          name: { value: "MARLEY", confidence: 0.99, edited: false },
-          species: { value: "Canino", confidence: 0.98, edited: false },
-          breed: { value: "Labrador Retriever", confidence: 0.97, edited: false },
-          sex: { value: "Macho", confidence: 0.99, edited: false },
-          birth_date: { value: "2019-10-04", confidence: 0.9, edited: false },
-          chip_id: { value: "941000024967769", confidence: 0.9, edited: false },
-          weight_kg: { value: "30", confidence: 0.8, edited: false },
-        },
-        owner: {
-          name: { value: "Beatriz Abarca", confidence: 0.9, edited: false },
-          address: { value: "Madrid", confidence: 0.8, edited: false },
-        },
-        timeline: [],
-        problem_list: [],
-        reminders: [],
-        review: {
-          status: "in_review",
-          edited_fields: [],
-          last_editor: "scan_service",
-          updated_at: null,
-        },
-      }),
-    });
-
-    render(<App />);
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
@@ -207,30 +110,233 @@ describe("App", () => {
       expect(screen.getByText("rec_scan_001")).toBeInTheDocument();
     });
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      "http://localhost:8000/api/v1/documents/scan",
-      { method: "POST" },
-    );
+    const scanCallArgs = global.fetch.mock.calls[0];
+    expect(scanCallArgs[0]).toBe("http://localhost:8000/api/v1/documents/scan");
+    expect(scanCallArgs[1].method).toBe("POST");
+    expect(scanCallArgs[1].body).toBeInstanceOf(FormData);
+    expect(scanCallArgs[1].body.get("file")).toBe(file);
+    expect(screen.queryByText(uiContent.documentPreview.title)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: uiContent.app.medicalRecord.title })).toBeInTheDocument();
   });
 
-  it("shows scan error message when scan fails", async () => {
+  it("shows scan API error message when backend returns parsing failure", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: false,
       json: async () => ({
-        error: { code: "SCAN_FAILED", message: "Could not parse selected document." },
+        error: {
+          code: "PARSING_INTEGRITY_LOW",
+          message: "Document parsing quality is too low for reliable ingestion.",
+        },
       }),
     });
 
     render(<App />);
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
       expect(
         screen.getByText(
-          `${uiContent.uploadPanel.scanErrorPrefix} Could not parse selected document.`,
+          `${uiContent.uploadPanel.scanErrorPrefix} Document parsing quality is too low for reliable ingestion.`,
           { exact: false },
         ),
       ).toBeInTheDocument();
     });
+  });
+
+  it("supports nested scan response shape with medical_record key", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        medical_record: {
+          record_id: "rec_nested_scan_001",
+          source_documents: [],
+          patient: {
+            name: { value: "NALA", confidence: 0.99, edited: false },
+            species: { value: "Canino", confidence: 0.98, edited: false },
+            breed: { value: "Mestizo", confidence: 0.97, edited: false },
+            sex: { value: "Hembra", confidence: 0.99, edited: false },
+            birth_date: { value: "2020-02-01", confidence: 0.9, edited: false },
+            chip_id: { value: "12345", confidence: 0.9, edited: false },
+            weight_kg: { value: "12", confidence: 0.8, edited: false },
+          },
+          owner: {
+            name: { value: "Owner", confidence: 0.9, edited: false },
+            address: { value: "Address", confidence: 0.8, edited: false },
+          },
+          timeline: [],
+          problem_list: [],
+          reminders: [],
+          review: {
+            status: "in_review",
+            edited_fields: [],
+            last_editor: "scan_service",
+            updated_at: null,
+          },
+        },
+        parsing_metadata: {
+          engine: "gatekeeper",
+          extraction_method: "fast_path",
+          latency_ms: 110,
+          extracted_char_count: 500,
+          meaningful_text: true,
+          integrity_score: 1,
+          reason: null,
+        },
+      }),
+    });
+
+    render(<App />);
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(screen.getByText("NALA")).toBeInTheDocument();
+      expect(screen.getByText("rec_nested_scan_001")).toBeInTheDocument();
+    });
+  });
+
+  it("shows reset confirmation modal and returns to upload step when confirmed", async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        medical_record: {
+          record_id: "rec_reset_001",
+          source_documents: [],
+          patient: {
+            name: { value: "ALYA", confidence: 0.99, edited: false },
+            species: { value: "Canino", confidence: 0.98, edited: false },
+            breed: { value: "Yorkshire", confidence: 0.97, edited: false },
+            sex: { value: "Hembra", confidence: 0.99, edited: false },
+            birth_date: { value: "2018-07-05", confidence: 0.9, edited: false },
+            chip_id: { value: "00023035139", confidence: 0.9, edited: false },
+            weight_kg: { value: "3.2", confidence: 0.8, edited: false },
+          },
+          owner: {
+            name: { value: "Owner", confidence: 0.9, edited: false },
+            address: { value: "Address", confidence: 0.8, edited: false },
+          },
+          timeline: [],
+          problem_list: [],
+          reminders: [],
+          review: {
+            status: "in_review",
+            edited_fields: [],
+            last_editor: "scan_service",
+            updated_at: null,
+          },
+        },
+        parsing_metadata: {
+          engine: "gatekeeper",
+          extraction_method: "fast_path",
+          latency_ms: 120,
+          extracted_char_count: 500,
+          meaningful_text: true,
+          integrity_score: 1,
+          reason: null,
+        },
+      }),
+    });
+
+    render(<App />);
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: uiContent.app.medicalRecord.title })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(uiContent.app.resetFlow.buttonAriaLabel));
+    expect(screen.getByText(uiContent.app.resetFlow.confirmMessage)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: uiContent.app.resetFlow.confirmNo }));
+    await waitFor(() => {
+      expect(screen.queryByText(uiContent.app.resetFlow.confirmMessage)).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(uiContent.app.resetFlow.buttonAriaLabel));
+    fireEvent.click(screen.getByRole("button", { name: uiContent.app.resetFlow.confirmYes }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: uiContent.app.uploadTitle })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows collapsible raw extracted text section after scan", async () => {
+    const rawText = "MASCOTA: KAI\nSEXO: Macho\nPESO: 12.4";
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        medical_record: {
+          record_id: "rec_raw_001",
+          source_documents: [
+            {
+              document_id: "doc_1",
+              filename: "record.txt",
+              source_type: "txt",
+              language: null,
+              uploaded_at: null,
+              raw_text: rawText,
+              attachments: [],
+            },
+          ],
+          patient: {
+            name: { value: "KAI", confidence: 0.8, edited: false },
+            species: { value: "Canino", confidence: 0.7, edited: false },
+            breed: { value: null, confidence: 0, edited: false },
+            sex: { value: "Macho", confidence: 0.7, edited: false },
+            birth_date: { value: null, confidence: 0, edited: false },
+            chip_id: { value: null, confidence: 0, edited: false },
+            weight_kg: { value: "12.4", confidence: 0.7, edited: false },
+          },
+          owner: {
+            name: { value: null, confidence: 0, edited: false },
+            address: { value: null, confidence: 0, edited: false },
+          },
+          timeline: [],
+          problem_list: [],
+          reminders: [],
+          review: {
+            status: "in_review",
+            edited_fields: [],
+            last_editor: "scan_service",
+            updated_at: null,
+          },
+        },
+        parsing_metadata: {
+          engine: "gatekeeper",
+          extraction_method: "fast_path",
+          latency_ms: 100,
+          extracted_char_count: 500,
+          meaningful_text: true,
+          integrity_score: 1,
+          reason: null,
+        },
+      }),
+    });
+
+    render(<App />);
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: uiContent.app.medicalRecord.title })).toBeInTheDocument();
+    });
+
+    const details = screen.getByText(uiContent.app.medicalRecord.rawExtractedTextTitle).closest("details");
+    expect(details).toBeInTheDocument();
+    details.setAttribute("open", "");
+    expect(
+      screen.getByText((content) => content.includes("MASCOTA: KAI") && content.includes("PESO: 12.4")),
+    ).toBeInTheDocument();
   });
 });
