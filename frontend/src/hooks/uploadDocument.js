@@ -24,9 +24,17 @@ export async function uploadDocument(file) {
   return response.json();
 }
 
-export async function scanDocument() {
+export async function scanDocument(file) {
+  if (!file) {
+    throw new Error("Please select a document before scanning.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
   const response = await fetch(`${API_BASE_URL}/api/v1/documents/scan`, {
     method: "POST",
+    body: formData,
   });
 
   if (!response.ok) {
@@ -41,5 +49,9 @@ export async function scanDocument() {
     throw new Error(detail);
   }
 
-  return response.json();
+  const payload = await response.json();
+  if (payload?.medical_record) {
+    return payload.medical_record;
+  }
+  return payload;
 }

@@ -1,152 +1,190 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://happyvet-pulse/contracts/medical_record.schema.json",
-  "title": "MedicalRecordDraftContract",
+  "title": "MedicalRecordScanEnvelopeContract",
   "type": "object",
   "additionalProperties": true,
   "required": [
-    "record_id",
-    "source_documents",
-    "patient",
-    "owner",
-    "timeline",
-    "problem_list",
-    "reminders",
-    "review"
+    "medical_record",
+    "parsing_metadata"
   ],
   "properties": {
-    "record_id": { "type": "string" },
-    "source_documents": {
+    "medical_record": { "$ref": "#/$defs/medicalRecordDraft" },
+    "parsing_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "extraction_method",
+        "latency_ms",
+        "extracted_char_count",
+        "meaningful_text",
+        "integrity_score"
+      ],
+      "properties": {
+        "engine": { "type": "string" },
+        "extraction_method": { "type": "string", "enum": ["fast_path", "tesseract_fallback"] },
+        "latency_ms": { "type": "integer", "minimum": 0 },
+        "extracted_char_count": { "type": "integer", "minimum": 0 },
+        "meaningful_text": { "type": "boolean" },
+        "integrity_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "processor_version": { "type": ["string", "null"] },
+    "warnings": {
       "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": [
-          "document_id",
-          "filename",
-          "source_type",
-          "raw_text",
-          "attachments"
-        ],
-        "properties": {
-          "document_id": { "type": "string" },
-          "filename": { "type": "string" },
-          "source_type": { "type": "string" },
-          "language": { "type": ["string", "null"] },
-          "uploaded_at": { "type": ["string", "null"] },
-          "raw_text": { "type": "string" },
-          "attachments": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true,
-              "required": ["attachment_id", "kind", "name"],
-              "properties": {
-                "attachment_id": { "type": "string" },
-                "kind": {
-                  "type": "string",
-                  "enum": ["pdf_page", "image", "lab_report", "rx", "unknown"]
-                },
-                "name": { "type": "string" }
+      "items": { "type": "string" }
+    },
+    "timings_ms": { "type": ["number", "integer", "null"], "minimum": 0 }
+  },
+  "$defs": {
+    "medicalRecordDraft": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "record_id",
+        "source_documents",
+        "patient",
+        "owner",
+        "timeline",
+        "problem_list",
+        "reminders",
+        "review"
+      ],
+      "properties": {
+        "record_id": { "type": "string" },
+        "source_documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "document_id",
+              "filename",
+              "source_type",
+              "raw_text",
+              "attachments"
+            ],
+            "properties": {
+              "document_id": { "type": "string" },
+              "filename": { "type": "string" },
+              "source_type": { "type": "string" },
+              "language": { "type": ["string", "null"] },
+              "uploaded_at": { "type": ["string", "null"] },
+              "raw_text": { "type": "string" },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": ["attachment_id", "kind", "name"],
+                  "properties": {
+                    "attachment_id": { "type": "string" },
+                    "kind": {
+                      "type": "string",
+                      "enum": ["pdf_page", "image", "lab_report", "rx", "unknown"]
+                    },
+                    "name": { "type": "string" }
+                  }
+                }
               }
             }
+          }
+        },
+        "patient": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["name", "species", "breed", "sex", "birth_date", "chip_id", "weight_kg"],
+          "properties": {
+            "name": { "$ref": "#/$defs/fieldValue" },
+            "species": { "$ref": "#/$defs/fieldValue" },
+            "breed": { "$ref": "#/$defs/fieldValue" },
+            "sex": { "$ref": "#/$defs/fieldValue" },
+            "birth_date": { "$ref": "#/$defs/fieldValue" },
+            "chip_id": { "$ref": "#/$defs/fieldValue" },
+            "weight_kg": { "$ref": "#/$defs/fieldValue" }
+          }
+        },
+        "owner": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["name", "address"],
+          "properties": {
+            "name": { "$ref": "#/$defs/fieldValue" },
+            "address": { "$ref": "#/$defs/fieldValue" }
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["event_id", "event_type", "diagnoses", "treatments", "tests", "attachments"],
+            "properties": {
+              "event_id": { "type": "string" },
+              "event_type": {
+                "type": "string",
+                "enum": [
+                  "visit",
+                  "lab",
+                  "administrative",
+                  "vaccination",
+                  "phone_call",
+                  "hospitalization",
+                  "prescription"
+                ]
+              },
+              "diagnoses": { "type": "array" },
+              "treatments": { "type": "array" },
+              "tests": { "type": "array" },
+              "attachments": { "type": "array" }
+            }
+          }
+        },
+        "problem_list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["problem_id", "name", "status"],
+            "properties": {
+              "problem_id": { "type": "string" },
+              "name": { "type": "string" },
+              "status": { "type": "string", "enum": ["active", "resolved", "recurrent"] }
+            }
+          }
+        },
+        "reminders": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["reminder_id", "type", "label", "status"],
+            "properties": {
+              "reminder_id": { "type": "string" },
+              "type": { "type": "string", "enum": ["vaccination", "checkup", "lab_followup"] },
+              "label": { "type": "string" },
+              "status": { "type": "string", "enum": ["pending", "done"] }
+            }
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["status", "edited_fields", "last_editor", "updated_at"],
+          "properties": {
+            "status": { "type": "string", "enum": ["needs_review", "in_review", "approved"] },
+            "edited_fields": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "last_editor": { "type": ["string", "null"] },
+            "updated_at": { "type": ["string", "null"] }
           }
         }
       }
     },
-    "patient": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": ["name", "species", "breed", "sex", "birth_date", "chip_id", "weight_kg"],
-      "properties": {
-        "name": { "$ref": "#/$defs/fieldValue" },
-        "species": { "$ref": "#/$defs/fieldValue" },
-        "breed": { "$ref": "#/$defs/fieldValue" },
-        "sex": { "$ref": "#/$defs/fieldValue" },
-        "birth_date": { "$ref": "#/$defs/fieldValue" },
-        "chip_id": { "$ref": "#/$defs/fieldValue" },
-        "weight_kg": { "$ref": "#/$defs/fieldValue" }
-      }
-    },
-    "owner": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": ["name", "address"],
-      "properties": {
-        "name": { "$ref": "#/$defs/fieldValue" },
-        "address": { "$ref": "#/$defs/fieldValue" }
-      }
-    },
-    "timeline": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": ["event_id", "event_type", "diagnoses", "treatments", "tests", "attachments"],
-        "properties": {
-          "event_id": { "type": "string" },
-          "event_type": {
-            "type": "string",
-            "enum": [
-              "visit",
-              "lab",
-              "administrative",
-              "vaccination",
-              "phone_call",
-              "hospitalization",
-              "prescription"
-            ]
-          },
-          "diagnoses": { "type": "array" },
-          "treatments": { "type": "array" },
-          "tests": { "type": "array" },
-          "attachments": { "type": "array" }
-        }
-      }
-    },
-    "problem_list": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": ["problem_id", "name", "status"],
-        "properties": {
-          "problem_id": { "type": "string" },
-          "name": { "type": "string" },
-          "status": { "type": "string", "enum": ["active", "resolved", "recurrent"] }
-        }
-      }
-    },
-    "reminders": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": true,
-        "required": ["reminder_id", "type", "label", "status"],
-        "properties": {
-          "reminder_id": { "type": "string" },
-          "type": { "type": "string", "enum": ["vaccination", "checkup", "lab_followup"] },
-          "label": { "type": "string" },
-          "status": { "type": "string", "enum": ["pending", "done"] }
-        }
-      }
-    },
-    "review": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": ["status", "edited_fields", "last_editor", "updated_at"],
-      "properties": {
-        "status": { "type": "string", "enum": ["needs_review", "in_review", "approved"] },
-        "edited_fields": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "last_editor": { "type": ["string", "null"] },
-        "updated_at": { "type": ["string", "null"] }
-      }
-    }
-  },
-  "$defs": {
     "fieldValue": {
       "type": "object",
       "additionalProperties": true,

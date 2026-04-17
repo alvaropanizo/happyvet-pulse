@@ -14,6 +14,12 @@ dist/
 playwright-report/
 test-results/
 
+# Real e2e fixture inputs (may include sensitive docs)
+frontend/tests/e2e/fixtures/*
+!frontend/tests/e2e/fixtures/.gitkeep
+!frontend/tests/e2e/fixtures/CI/
+!frontend/tests/e2e/fixtures/CI/*
+
 # Env / local config
 .env
 .env.*
@@ -21,3 +27,8 @@ test-results/
 # IDE
 .idea/
 .vscode/
+
+# Optional local quality/test caches
+.ruff_cache/
+.coverage
+htmlcov/
