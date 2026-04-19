@@ -32,9 +32,14 @@ describe("App", () => {
   it("shows only upload panel on first load", () => {
     render(<App />);
 
-    expect(
-      screen.getByRole("heading", { name: uiContent.app.uploadTitle }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(uiContent.app.uploadHeaderLine1Prefix)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.app.uploadHeaderLine2)).toBeInTheDocument();
+    expect(screen.getByLabelText(uiContent.app.themeFabAriaLabel)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.footerSupportLine)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.caption)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.samplePillsIntro)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.sampleFiles[0].fileName)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: uiContent.documentPreview.title })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
   });
@@ -51,7 +56,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton })).toBeInTheDocument();
     });
     expect(screen.getAllByText(uiContent.documentPreview.title).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("heading", { name: uiContent.app.uploadTitle })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).not.toBeInTheDocument();
   });
 
   it("shows structured card and hides preview after successful scan", async () => {
@@ -264,7 +269,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: uiContent.app.resetFlow.confirmYes }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: uiContent.app.uploadTitle })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
     });
   });

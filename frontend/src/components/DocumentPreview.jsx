@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "react-bootstrap";
 
 import { PREVIEW_TYPES } from "../constants/previewTypes";
-import { previewStyles, sharedStyles, uiTheme } from "../styles/uiTheme";
 import { getFileExtension, getPreviewType } from "../utils/filePreview";
 
 function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
@@ -10,12 +9,7 @@ function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
     <img
       src={fileUrl}
       alt={`${imageAltPrefix} ${fileName}`}
-      style={{
-        width: "100%",
-        maxHeight: uiTheme.preview.imageMaxHeight,
-        objectFit: "contain",
-        ...previewStyles.mediaBox,
-      }}
+      className="hv-media-box hv-media-image"
     />
   );
 }
@@ -25,31 +19,20 @@ function PdfPreview({ fileUrl, fileName, pdfTitlePrefix }) {
     <iframe
       title={`${pdfTitlePrefix} ${fileName}`}
       src={fileUrl}
-      style={{
-        width: "100%",
-        height: uiTheme.preview.pdfHeight,
-        ...previewStyles.mediaBox,
-      }}
+      className="hv-media-box hv-media-pdf"
     />
   );
 }
 
 function TextPreview({ textError, textPreview, textLoading }) {
   return (
-    <div
-      style={{
-        ...previewStyles.mediaBox,
-        padding: uiTheme.preview.textPadding,
-        maxHeight: uiTheme.preview.textMaxHeight,
-        overflow: "auto",
-      }}
-    >
+    <div className="hv-media-box hv-media-text">
       {textError ? (
-        <p className="mb-0" style={previewStyles.errorText}>
+        <p className="mb-0 hv-error-text">
           {textError}
         </p>
       ) : (
-        <pre className="mb-0" style={{ whiteSpace: "pre-wrap", ...previewStyles.infoText }}>
+        <pre className="mb-0 hv-info-text hv-pre-wrap">
           {textPreview || textLoading}
         </pre>
       )}
@@ -59,16 +42,11 @@ function TextPreview({ textError, textPreview, textLoading }) {
 
 function DocxFallback({ fileName, docxUnsupported, fileSelectedPrefix }) {
   return (
-    <div
-      style={{
-        ...previewStyles.mediaBox,
-        padding: uiTheme.preview.fallbackPadding,
-      }}
-    >
-      <p className="mb-2" style={previewStyles.errorText}>
+    <div className="hv-media-box hv-fallback-box">
+      <p className="mb-2 hv-error-text">
         {docxUnsupported}
       </p>
-      <p className="mb-0" style={previewStyles.infoText}>
+      <p className="mb-0 hv-info-text">
         {fileSelectedPrefix} <strong>{fileName}</strong>
       </p>
     </div>
@@ -77,18 +55,11 @@ function DocxFallback({ fileName, docxUnsupported, fileSelectedPrefix }) {
 
 function UnsupportedFallback({ extension, unsupportedTitle, unsupportedFormatPrefix }) {
   return (
-    <div
-      style={{
-        border: `1px solid ${uiTheme.colors.primary}`,
-        borderRadius: uiTheme.radius.inner,
-        padding: uiTheme.preview.fallbackPadding,
-        backgroundColor: uiTheme.colors.white,
-      }}
-    >
-      <p className="mb-2" style={previewStyles.errorText}>
+    <div className="hv-unsupported-box">
+      <p className="mb-2 hv-error-text">
         {unsupportedTitle}
       </p>
-      <p className="mb-0" style={previewStyles.infoText}>
+      <p className="mb-0 hv-info-text">
         {unsupportedFormatPrefix} <strong>{extension || "unknown"}</strong>
       </p>
     </div>
@@ -125,9 +96,9 @@ function DocumentPreview({ file, content }) {
   }, [content.textReadError, file, isTxt]);
 
   return (
-    <Card style={previewStyles.card}>
+    <Card className="hv-card hv-card-spaced">
       <Card.Body>
-        <h2 className="h6" style={sharedStyles.panelTitle}>
+        <h2 className="h6 hv-title">
           {content.title}
         </h2>
 

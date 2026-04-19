@@ -1,23 +1,21 @@
 import { Card } from "react-bootstrap";
 
-import { previewStyles, sharedStyles } from "../styles/uiTheme";
-
 function RecentDocumentsPanel({ documents, content }) {
   return (
-    <Card style={{ ...sharedStyles.baseCard, height: "100%" }}>
+    <Card className="hv-card h-100">
       <Card.Body>
-        <h2 className="h6" style={sharedStyles.panelTitle}>
+        <h2 className="h6 hv-title">
           {content.title}
         </h2>
 
         {documents.length === 0 ? (
-          <p className="mb-0" style={previewStyles.infoText}>
+          <p className="mb-0 hv-info-text">
             {content.emptyState}
           </p>
         ) : (
           <ul className="mb-0 ps-3">
             {documents.map((fileName, index) => (
-              <li key={`${fileName}-${index}`} style={{ ...previewStyles.infoText, marginBottom: "6px" }}>
+              <li key={`${fileName}-${index}`} className="hv-info-text mb-1">
                 {fileName}
               </li>
             ))}

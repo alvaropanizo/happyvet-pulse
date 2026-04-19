@@ -53,6 +53,8 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
     vite.config.js
     playwright.config.js
     package-lock.json
+    /public
+      vetpulse-icon.svg   # favicon + top-left brand bubble (/vetpulse-icon.svg)
     /src
       App.jsx
       main.jsx
@@ -64,7 +66,9 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
       /components
         DocumentPreview.jsx
         MedicalRecordPanel.jsx
+        MaterialUploadIcon.jsx
         RecentDocumentsPanel.jsx
+        UploadDropzoneFooter.jsx
         UploadPanel.jsx
         UploadResultCard.jsx
       /data
@@ -75,7 +79,7 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
       /hooks
         uploadDocument.js
       /styles
-        uiTheme.js
+        theme.css
       /test
         setup.js
       /utils
@@ -442,6 +446,58 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - GitHub Actions real scan job:
   - `.github/workflows/tests.yml` -> `frontend-e2e-real-ci`
   - starts backend service, waits for `/health`, then executes `npm run test:e2e:real:ci`
+
+## Milestone 5 Decisions (Current)
+
+### Frontend UI Polish and Maintainability
+
+- Milestone 5 is primarily a **frontend-only** pass: upload marketing header, redesigned dropzone + footer, full-window drag overlay, branding, and styling hygiene—**no backend API changes** required for these items.
+- **Copy and structured data** live in `frontend/src/data/uiContent.json`. Do not introduce a second parallel UI JSON file.
+- **Runtime validation** in `frontend/src/utils/validateUiContent.js`:
+  - Required **string** keys as listed in `REQUIRED_PATHS`.
+  - **`uploadPanel.sampleFiles`**: must be a **non-empty array** of objects, each with a non-empty **`fileName`** string (mock sample list for pills).
+
+### Upload step architecture (reference)
+
+- **`App.jsx` (upload step):** `hv-upload-screen` — header block (rotating word animation driven by CSS + word list in JS), optional **brand bubble** (`/vetpulse-icon.svg`), **FAB** stub for dark mode (`app.themeFabAriaLabel`), then `UploadPanel`.
+- **`UploadPanel.jsx`:** Single **Card**; **`Card.Body`** is the interactive drop target (click + keyboard); **`UploadDropzoneFooter`** is attached below the body inside the same card—footer clicks **`stopPropagation`** so they do not trigger file pick (until sample actions are implemented).
+- **`MaterialUploadIcon.jsx`:** Inline SVG (Material-style upload glyph), no extra icon font dependency.
+- **Drag overlay:** When a file drag is active, a **fixed** full-screen layer sits **above** other fixed UI (high `z-index`); avoid parent wrappers with `z-index` that trap stacking. Overlay fill uses **`rgba(var(--hv-color-accent-soft-highlight-rgb), var(--hv-overlay-alpha))`** so hue is preserved while tuning transparency via `--hv-overlay-alpha`.
+- **Body class** `hv-drag-active` applies **`cursor: copy`** during drag.
+
+### Frontend Styling Rules (Milestone 5)
+
+- Styling is centralized in:
+  - `frontend/src/styles/theme.css`
+- `frontend/src/styles/uiTheme.js` has been retired and must not be reintroduced.
+- Avoid inline style objects in JSX (`style={{ ... }}`) except for temporary experiments that are removed before merge.
+- Favor CSS variables in `:root` plus semantic utility/component classes (`hv-*`) for:
+  - colors
+  - typography
+  - spacing/radius
+  - component state variants (e.g., drag-over)
+- Import order in `frontend/src/main.jsx` should remain:
+  - Bootstrap base CSS
+  - project `theme.css` overrides
+
+### Static assets (Vite)
+
+- Put fixed-URL assets in **`frontend/public/`** (served at site root): e.g. `public/vetpulse-icon.svg` → `src="/vetpulse-icon.svg"` in `<img>` or `<link rel="icon" ...>`.
+- Put imported/hashed assets in **`frontend/src/assets/`** and `import` them in components when you want build-time hashing.
+
+### Milestone 5 Development Guidelines
+
+- Keep the first upload step focused on a **single-file** clinical-history workflow (`one pet per upload` in copy).
+- Any text/copy update must be:
+  - added in `uiContent.json`
+  - covered by `validateUiContent.js` (strings + **`sampleFiles`** shape)
+  - reflected in **`App.test.jsx`** (or other tests) when user-visible behavior changes
+- Keep components presentational:
+  - no theme constants in component files
+  - no duplicate style literals across components
+- Prefer additive CSS classes over one-off selectors tied to DOM depth.
+- Preserve React-Bootstrap usage for structure, while visual identity remains in `theme.css`.
+- **Next implementations** (explicitly still open): wire **sample pills** to real files or scan; implement **dark mode** for the FAB; optional Milestone 5 screenshot in `docs/images/`.
 
 ## How to Update Docs Each Milestone
 

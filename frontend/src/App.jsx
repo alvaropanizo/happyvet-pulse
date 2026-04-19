@@ -7,10 +7,10 @@ import UploadPanel from "./components/UploadPanel";
 import { getInitialMedicalRecordState } from "./data/medicalRecordState";
 import uiContent from "./data/uiContent.json";
 import { scanDocument } from "./hooks/uploadDocument";
-import { previewStyles, sharedStyles, uiTheme, uploadStyles } from "./styles/uiTheme";
 import { validateUiContent } from "./utils/validateUiContent";
 
 const validatedUiContent = validateUiContent(uiContent);
+const ROTATING_UPLOAD_WORDS = ["files", "documents", "PDFs", "docs", "txt", "images"];
 
 function App() {
   const [medicalRecord, setMedicalRecord] = useState(() => getInitialMedicalRecordState());
@@ -58,36 +58,57 @@ function App() {
   };
 
   return (
-    <main style={sharedStyles.mainPage}>
-      <Container style={{ maxWidth: uiTheme.layout.appMaxWidth }}>
+    <main className="hv-app-page">
+      <Container className="hv-app-container">
         <section>
           {currentStep === "upload" ? (
-            <UploadPanel
-              onFileSelected={handleFileSelected}
-              title={validatedUiContent.app.uploadTitle}
-              content={validatedUiContent.uploadPanel}
-            />
+            <section className="hv-upload-screen">
+              <header className="hv-upload-header">
+                <div className="hv-upload-header-copy">
+                  <h1 className="h1 mb-0 hv-title hv-upload-header-title">
+                    <span>{validatedUiContent.app.uploadHeaderLine1Prefix}</span>{" "}
+                    <span className="hv-rotating-words" aria-label="Supported input types">
+                      {ROTATING_UPLOAD_WORDS.map((word) => (
+                        <span key={word} className="hv-rotating-word">{word}</span>
+                      ))}
+                    </span>
+                  </h1>
+                  <p className="mb-0 hv-upload-header-subtitle">
+                    {validatedUiContent.app.uploadHeaderLine2}
+                  </p>
+                </div>
+              </header>
+              <div className="hv-upload-corner-icon" aria-label="HappyVet Pulse">
+                <img src="/vetpulse-icon.svg" alt="" width="28" height="28" decoding="async" />
+              </div>
+              <div className="hv-upload-main">
+                <UploadPanel
+                  onFileSelected={handleFileSelected}
+                  content={validatedUiContent.uploadPanel}
+                />
+              </div>
+            </section>
           ) : null}
 
           {currentStep === "preview" && selectedFile ? (
             <>
-              <Card style={{ ...sharedStyles.baseCard, marginTop: "16px" }}>
+              <Card className="hv-card hv-card-spaced">
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-center">
-                    <h2 className="h6 mb-0" style={sharedStyles.panelTitle}>
+                    <h2 className="h6 mb-0 hv-title">
                       {validatedUiContent.documentPreview.title}
                     </h2>
-                    <Button type="button" style={uploadStyles.button} onClick={handleScan}>
+                    <Button type="button" className="hv-primary-btn" onClick={handleScan}>
                       {validatedUiContent.uploadPanel.scanButton}
                     </Button>
                   </div>
                   {isScanning ? (
-                    <p className="mt-2 mb-0" style={previewStyles.infoText}>
+                    <p className="mt-2 mb-0 hv-info-text">
                       {validatedUiContent.uploadPanel.scanningMessage}
                     </p>
                   ) : null}
                   {scanError ? (
-                    <p className="mt-2 mb-0" style={previewStyles.errorText}>
+                    <p className="mt-2 mb-0 hv-error-text">
                       {validatedUiContent.uploadPanel.scanErrorPrefix} {scanError}
                     </p>
                   ) : null}
@@ -99,24 +120,12 @@ function App() {
 
           {currentStep === "structured" ? (
             <>
-              <div className="d-flex justify-content-end" style={{ marginTop: "20px", marginBottom: "4px" }}>
+              <div className="d-flex justify-content-end hv-reset-row">
                 <Button
                   type="button"
                   aria-label={validatedUiContent.app.resetFlow.buttonAriaLabel}
                   onClick={() => setShowResetConfirm(true)}
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    borderRadius: "50%",
-                    backgroundColor: uiTheme.colors.primary,
-                    borderColor: uiTheme.colors.primary,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    boxShadow: "0 4px 12px rgba(253, 77, 13, 0.25)",
-                    transition: "transform 120ms ease, box-shadow 120ms ease",
-                  }}
+                  className="hv-reset-btn"
                 >
                   <svg
                     aria-hidden="true"
@@ -124,7 +133,6 @@ function App() {
                     width="20"
                     height="20"
                     fill="currentColor"
-                    style={{ lineHeight: 1 }}
                   >
                     <path d="M8 3a5 5 0 1 1-4.546 2.916.5.5 0 0 1 .908-.418A4 4 0 1 0 8 4h2.5a.5.5 0 0 1 0 1H7.5A.5.5 0 0 1 7 4.5v-3a.5.5 0 0 1 1 0V3z" />
                   </svg>
@@ -138,54 +146,27 @@ function App() {
           ) : null}
         </section>
       </Container>
+      <Button type="button" className="hv-theme-fab" aria-label={validatedUiContent.app.themeFabAriaLabel}>
+        ◐
+      </Button>
       <Modal show={showResetConfirm} onHide={() => setShowResetConfirm(false)} centered>
-        <Modal.Header
-          closeButton
-          style={{
-            backgroundColor: uiTheme.colors.bgMain,
-            borderBottomColor: uiTheme.colors.accentSoft,
-          }}
-        >
-          <Modal.Title
-            style={{
-              fontFamily: uiTheme.typography.titleFontFamily,
-              color: uiTheme.colors.primary,
-            }}
-          >
+        <Modal.Header closeButton className="hv-modal-header">
+          <Modal.Title className="hv-modal-title">
             {validatedUiContent.app.resetFlow.confirmTitle}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body
-          style={{
-            backgroundColor: uiTheme.colors.white,
-            color: uiTheme.colors.accentInfo,
-            padding: "20px 24px 12px 24px",
-          }}
-        >
+        <Modal.Body className="hv-modal-body">
           {validatedUiContent.app.resetFlow.confirmMessage}
         </Modal.Body>
-        <Modal.Footer
-          style={{
-            borderTopColor: uiTheme.colors.accentSoft,
-            padding: "12px 24px 20px 24px",
-            gap: "8px",
-          }}
-        >
+        <Modal.Footer className="hv-modal-footer">
           <Button
             variant="secondary"
-            style={{ minWidth: "88px" }}
+            className="hv-modal-btn-min"
             onClick={() => setShowResetConfirm(false)}
           >
             {validatedUiContent.app.resetFlow.confirmNo}
           </Button>
-          <Button
-            style={{
-              backgroundColor: uiTheme.colors.primary,
-              borderColor: uiTheme.colors.primary,
-              minWidth: "88px",
-            }}
-            onClick={handleConfirmReset}
-          >
+          <Button className="hv-primary-btn hv-modal-btn-min" onClick={handleConfirmReset}>
             {validatedUiContent.app.resetFlow.confirmYes}
           </Button>
         </Modal.Footer>

@@ -1,6 +1,8 @@
 {
   "app": {
-    "uploadTitle": "Upload medical record documents",
+    "uploadHeaderLine1Prefix": "Convert",
+    "uploadHeaderLine2": "into clinical patient records",
+    "themeFabAriaLabel": "Toggle dark mode (coming soon)",
     "resetFlow": {
       "buttonAriaLabel": "Reset working page",
       "confirmTitle": "Reset current page",
@@ -45,9 +47,16 @@
     }
   },
   "uploadPanel": {
-    "dropInstruction": "Drop file here or click to select",
-    "supportNote": "Supported now: single file selection for the upcoming upload flow.",
-    "selectButton": "Select file",
+    "primaryLabel": "Upload clinical history to create patient record",
+    "caption": "One pet per upload. We'll automatically build the timeline from the document.",
+    "footerSupportLine": "Support for PDFs, images, and text docs from any veterinary clinic",
+    "samplePillsIntro": "Don't have a document? try one of our samples:",
+    "sampleFiles": [
+      { "fileName": "clinical_history1.txt" },
+      { "fileName": "marley_record.pdf" },
+      { "fileName": "visit_notes.docx" }
+    ],
+    "dragOverlayHint": "Drop file anywhere to upload",
     "scanButton": "Scan",
     "fileInputAriaLabel": "File selector",
     "selectedPrefix": "Selected:",
