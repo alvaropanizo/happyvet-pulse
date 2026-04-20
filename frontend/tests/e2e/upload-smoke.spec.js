@@ -61,8 +61,8 @@ test("selects a file, scans it, and shows structured record card", async ({ page
   await page.getByRole("button", { name: "Scan" }).click();
 
   await expect(page.getByRole("heading", { name: "Medical record draft (read-only)" })).toBeVisible();
-  await expect(page.getByText("Name: LUNA")).toBeVisible();
-  await expect(page.getByText("rec_scan_mock_001")).toBeVisible();
+  await expect(page.locator('input[value="LUNA"]').first()).toBeVisible();
+  await expect(page.locator('input[value="rec_scan_mock_001"]').first()).toBeVisible();
   await expect(page.getByText("Scanned")).toBeVisible();
 });
 
