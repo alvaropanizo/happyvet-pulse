@@ -499,6 +499,44 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - Preserve React-Bootstrap usage for structure, while visual identity remains in `theme.css`.
 - **Next implementations** (explicitly still open): wire **sample pills** to real files or scan; implement **dark mode** for the FAB; optional Milestone 5 screenshot in `docs/images/`.
 
+### Milestone 5 Latest Flow Decisions (Current)
+
+- **Review split persistence:**
+  - Once a file is selected, render path remains in the review split state.
+  - Do not key remount by `preview` vs `structured`; only switch upload vs review container state.
+  - Goal: avoid full-page re-animation/reload feel when scan completes.
+
+- **Left pane invariant after scan:**
+  - Keep `DocumentReviewToolbar` + embedded `DocumentPreview` visible before, during, and after scan.
+  - Do not swap to a separate post-scan left placeholder/message component.
+
+- **Toolbar scan state machine (`DocumentReviewToolbar.jsx`):**
+  - **idle:** enabled `Scan` button + tooltip
+  - **scanning:** disabled grey button with `Scanning` label and inline spinner
+  - **completed:** non-interactive `Scanned` status with green check
+  - Keep accessibility semantics (`role="status"` for completion, busy semantics for scanning state).
+
+- **Scanning feedback placement:**
+  - Remove extra in-card scan status block from `App.jsx`.
+  - Primary progress cue is now the toolbar scan control state itself.
+  - Keep scan API errors visible in a compact error row beneath the toolbar.
+
+- **Reset flow removal:**
+  - “Reset working page” CTA and its confirmation modal are intentionally removed.
+  - `uiContent.json` + `validateUiContent.js` should not include the old `app.resetFlow.*` requirements.
+
+- **State reset on file removal:**
+  - Confirming remove file must clear `selectedFile`, `scanCompleted`, scan errors, and reset medical record state to initial defaults.
+
+- **Source of truth updates for this flow:**
+  - `frontend/src/App.jsx`
+  - `frontend/src/components/DocumentReviewToolbar.jsx`
+  - `frontend/src/styles/theme.css`
+  - `frontend/src/data/uiContent.json`
+  - `frontend/src/utils/validateUiContent.js`
+  - `frontend/src/App.test.jsx`
+  - `frontend/tests/e2e/upload-smoke.spec.js`
+
 ## How to Update Docs Each Milestone
 
 Use this checklist at the end of every milestone implementation:

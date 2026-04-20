@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "react-bootstrap";
 
-import MaterialUploadIcon from "./MaterialUploadIcon";
+import MaterialUploadIcon from "./icons/MaterialUploadIcon";
 import UploadDropzoneFooter from "./UploadDropzoneFooter";
 
 function UploadPanel({

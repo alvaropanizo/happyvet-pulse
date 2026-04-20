@@ -2,8 +2,11 @@
 /* Design Tokens                                                              */
 /* -------------------------------------------------------------------------- */
 :root {
+  --hv-app-viewport-height: 100vh;
   --hv-color-bg-main: #f8f9fa;
   --hv-color-primary: #fd4d0d;
+  --hv-color-error: #f03a3a;
+  --hv-color-success: #22c55e;
   --hv-plain-text: #323131;
   --hv-light-text: #5a5a5a;
   --hv-color-accent-soft: #fae0ff;
@@ -12,6 +15,7 @@
   --hv-overlay-alpha: 0.18;
   --hv-color-accent-info: #3898ff;
   --hv-color-white: #ffffff;
+  --hv-color-light-grey: #ececec;
   --hv-color-raw-bg: #ffefeb;
   --hv-color-raw-border: #e9ecef;
   --hv-font-title: "Avenir Next", "Avenir", "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -33,13 +37,16 @@
   --hv-size-preview-image-max-height: 440px;
   --hv-size-preview-pdf-height: 520px;
   --hv-size-preview-text-max-height: 360px;
-  --hv-size-reset-btn: 48px;
+  /* Review step (embedded preview below toolbar): tune these without affecting upload views */
+  --hv-review-preview-pdf-height: min(52vh, 560px);
+  --hv-review-preview-image-max-height: min(48vh, 480px);
+  --hv-review-preview-text-max-height: min(36vh, 320px);
   --hv-size-modal-btn-min: 88px;
   --hv-size-dropzone: min(50vw, 760px);
-  --hv-size-dropzone-min-height: 50vh;
+  /* Fits within app shell (header + footer); avoid 50vh which exceeds usable area */
+  --hv-size-dropzone-min-height: min(34vh, 280px);
   --hv-font-size-raw: 0.9rem;
   --hv-line-height-raw: 1.4;
-  --hv-shadow-reset: 0 4px 12px rgba(253, 77, 13, 0.25);
   --hv-transition-fast: transform 120ms ease, box-shadow 120ms ease;
   --hv-space-drop-layer-inset: 18px;
   --hv-radius-drop-layer: 22px;
@@ -52,12 +59,27 @@
 /* -------------------------------------------------------------------------- */
 /* Global Base                                                                */
 /* -------------------------------------------------------------------------- */
+@supports (height: 100dvh) {
+  :root {
+    --hv-app-viewport-height: 100dvh;
+  }
+}
+
+html {
+  height: 100%;
+}
+
 body,
 #root {
   margin: 0;
+  height: 100%;
   background: var(--hv-color-bg-main);
   font-family: var(--hv-font-body);
   color: var(--hv-color-accent-info);
+}
+
+body {
+  overflow: hidden;
 }
 
 body.hv-drag-active,
@@ -69,17 +91,73 @@ body.hv-drag-active * {
 /* Layout                                                                     */
 /* -------------------------------------------------------------------------- */
 .hv-app-page {
-  min-height: 100vh;
+  height: var(--hv-app-viewport-height);
+  max-height: var(--hv-app-viewport-height);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--hv-color-bg-main);
   padding: var(--hv-page-padding);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.hv-app-container {
-  max-width: var(--hv-app-max-width);
+.hv-app-stack {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hv-app-stage-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hv-app-stage {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Step changes (upload → preview → record): cheap CSS-only enter animation */
+@keyframes hv-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hv-step-transition {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: hv-step-in 0.8s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-step-transition {
+    animation: none;
+  }
 }
 
 .hv-upload-screen {
-  min-height: calc(100vh - (2 * var(--hv-page-padding-y)));
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -198,7 +276,7 @@ body.hv-drag-active * {
   z-index: 900;
 }
 
-.hv-upload-corner-icon {
+.hv-app-branding-icon {
   position: fixed;
   top: 24px;
   left: 24px;
@@ -208,18 +286,522 @@ body.hv-drag-active * {
   z-index: 900;
 }
 
-.hv-upload-corner-icon img {
+.hv-app-branding-icon img {
   display: block;
   width: 40px;
   height: 40px;
   object-fit: contain;
 }
 
+.hv-site-footer {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--hv-light-text);
+}
+
+.hv-site-footer-inner {
+  font-family: var(--hv-font-body);
+}
+
+.hv-site-footer-link {
+  color: var(--hv-color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.hv-site-footer-link:hover {
+  color: var(--hv-plain-text);
+}
+
 .hv-upload-main {
   flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.hv-document-review-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--hv-space-card-top);
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+@media (min-width: 768px) {
+  .hv-document-review-split {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.hv-document-review-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hv-document-review-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hv-review-left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hv-space-card-top);
+  flex: 1;
+  min-height: 0;
+}
+
+@keyframes hv-review-left-after-scan {
+  from {
+    opacity: 0.88;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hv-review-left-stack--after-scan {
+  animation: hv-review-left-after-scan 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-review-left-stack--after-scan {
+    animation: none;
+  }
+}
+
+.hv-document-review-split .hv-review-preview-embedded {
+  --hv-size-preview-pdf-height: var(--hv-review-preview-pdf-height);
+  --hv-size-preview-image-max-height: var(--hv-review-preview-image-max-height);
+  --hv-size-preview-text-max-height: var(--hv-review-preview-text-max-height);
+}
+
+.hv-review-preview-embedded {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--hv-color-accent-soft);
+  background: var(--hv-color-white);
+  overflow: hidden;
+}
+
+.hv-review-preview-embedded-header {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--hv-color-accent-soft);
+}
+
+.hv-review-preview-embedded-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem 1rem;
+}
+
+.hv-review-right-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hv-space-card-top);
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.hv-review-scan-loading {
+  flex: 1;
+  min-height: min(240px, 36vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--hv-color-raw-border);
+  background: linear-gradient(
+    125deg,
+    var(--hv-color-light-grey) 0%,
+    #f5f6f8 40%,
+    var(--hv-color-light-grey) 80%
+  );
+  background-size: 220% 220%;
+  animation: hv-scan-loading-bg 2.2s ease-in-out infinite;
+}
+
+@keyframes hv-scan-loading-bg {
+  0%,
+  100% {
+    background-position: 0% 40%;
+  }
+
+  50% {
+    background-position: 100% 60%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-review-scan-loading {
+    animation: none;
+  }
+}
+
+.hv-review-scan-loading-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.hv-review-scan-loading-spinner {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-width: 0.2rem;
+  color: var(--hv-color-accent-soft-highlight);
+}
+
+.hv-review-post-scan-left {
+  flex: 1;
+  min-height: min(200px, 30vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  border: 1px solid var(--hv-color-accent-soft);
+  background: var(--hv-color-white);
+  text-align: center;
+}
+
+.hv-structured-record-skeleton {
+  flex: 1;
+  min-height: min(240px, 36vh);
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--hv-color-raw-border);
+  background: var(--hv-color-light-grey);
+  overflow: hidden;
+}
+
+.hv-structured-record-skeleton-chrome {
+  flex-shrink: 0;
+  height: 32px;
+  background: linear-gradient(180deg, #f3f3f3 0%, var(--hv-color-light-grey) 100%);
+  border-bottom: 1px solid var(--hv-color-raw-border);
+}
+
+.hv-structured-record-skeleton-body {
+  flex: 1;
+  min-height: 0;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.hv-structured-record-skeleton-line {
+  height: 50px;
+  margin-bottom: 15px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    #d8dce0 0%,
+    #ececec 45%,
+    #d8dce0 100%
+  );
+  opacity: 0.95;
+}
+
+.hv-structured-record-skeleton-line--lg {
+  width: 58%;
+}
+
+.hv-structured-record-skeleton-line--md {
+  width: 42%;
+}
+
+.hv-structured-record-skeleton-line--sm {
+  width: 72%;
+}
+
+.hv-structured-record-skeleton-line--full {
+  width: 100%;
+}
+
+.hv-document-review-split .hv-card-spaced {
+  margin-top: 0;
+}
+
+.hv-review-left-card.card {
+  overflow: hidden;
+}
+
+.hv-document-review-split .card.hv-card {
+  border-radius: 0 !important;
+}
+
+.hv-document-review-split .hv-media-box,
+.hv-document-review-split .hv-unsupported-box {
+  border-radius: 0;
+}
+
+.hv-review-toolbar {
+  padding: 0;
+}
+
+.hv-review-toolbar-row-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  min-height: 48px;
+  background: var(--hv-color-light-grey);
+}
+
+.hv-review-toolbar-summary-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0.65rem 1rem;
+}
+
+.hv-review-toolbar-scan-trigger {
+  display: flex;
+  align-self: stretch;
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn {
+  position: relative;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 6.5rem;
+  padding: 0.65em 4em !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background-color: var(--hv-color-accent-soft-highlight) !important;
+  border-color: var(--hv-color-accent-soft-highlight) !important;
+  color: var(--hv-color-white) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hv-review-toolbar-scan-btn-label {
+  text-align: center;
+}
+
+.hv-review-toolbar-scan-btn-icon {
+  position: absolute;
+  right: 1.15em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.15em;
+  pointer-events: none;
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn:active:not(:disabled) {
+  filter: brightness(0.88);
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn:disabled {
+  opacity: 0.65;
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn--scanning:disabled {
+  opacity: 1 !important;
+  cursor: wait;
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn--scanning {
+  background-color: #c8cdd4 !important;
+  border-color: #c8cdd4 !important;
+  color: #4a5056 !important;
+  filter: none !important;
+}
+
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn--scanning:hover,
+.hv-review-toolbar-scan-trigger .hv-review-toolbar-scan-btn--scanning:active {
+  filter: none !important;
+}
+
+/* Wrapper positions without transform — Bootstrap spinner uses transform for rotation */
+.hv-review-toolbar-scan-btn-spinner-wrap {
+  position: absolute;
+  right: 1.15em;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hv-review-toolbar-scan-btn-spinner {
+  width: 1.05rem !important;
+  height: 1.05rem !important;
+  border-width: 0.14rem !important;
+  color: #4a5056 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hv-review-toolbar-scan-btn-spinner {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+.hv-review-toolbar-scan-complete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 6.5rem;
+  padding: 0.65em 4em;
+  border-radius: 0;
+  border: none;
+  box-sizing: border-box;
+  font-family: var(--hv-font-body);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background-color: rgba(34, 197, 94, 0.12);
+  color: var(--hv-color-success);
+}
+
+.hv-review-toolbar-scan-complete-label {
+  text-align: center;
+}
+
+.hv-review-toolbar-scan-complete-check {
+  flex-shrink: 0;
+}
+
+.hv-review-toolbar-console-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--hv-plain-text);
+  color: var(--hv-color-white);
+  flex-shrink: 0;
+}
+
+.hv-review-toolbar-summary-text {
+  font-family: var(--hv-font-title);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--hv-plain-text);
+}
+
+.hv-review-toolbar-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.85rem 1rem 1rem;
+  border-bottom: 1px solid var(--hv-color-accent-soft);
+}
+
+.hv-review-toolbar-file-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.875rem;
+  color: var(--hv-light-text);
+}
+
+.hv-review-toolbar-file-base {
+  font-weight: 600;
+  color: var(--hv-plain-text);
+  word-break: break-word;
+}
+
+.hv-review-toolbar-file-format {
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--hv-color-accent-info);
+}
+
+.hv-review-toolbar-meta-sep {
+  color: var(--hv-light-text);
+}
+
+.hv-review-toolbar-file-size {
+  color: var(--hv-light-text);
+}
+
+.hv-review-toolbar-remove {
+  appearance: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  margin: 0;
+  border: 1.5px solid var(--hv-color-error);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--hv-color-error);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.hv-review-toolbar-remove:hover {
+  background-color: var(--hv-color-error);
+  border-color: var(--hv-color-error);
+  color: var(--hv-color-white);
+}
+
+.hv-review-toolbar-remove:focus-visible {
+  outline: 2px solid var(--hv-color-error);
+  outline-offset: 2px;
+}
+
+.hv-review-toolbar-remove-x {
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 1;
+  display: block;
+}
+
+.hv-review-toolbar-card-error {
+  border-top: 1px solid var(--hv-color-accent-soft);
+}
+
+.hv-review-toolbar-tooltip .tooltip-inner {
+  text-align: left;
+  max-width: 280px;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -277,6 +859,7 @@ body.hv-drag-active * {
 
 .hv-upload-dropzone-card.hv-dropzone {
   min-height: auto;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -284,6 +867,7 @@ body.hv-drag-active * {
 .hv-upload-dropzone-card .hv-dropzone-body {
   flex: 1;
   min-height: var(--hv-size-dropzone-min-height);
+  max-height: 100%;
   cursor: pointer;
 }
 
@@ -311,6 +895,7 @@ body.hv-drag-active * {
   padding: 1rem 1.25rem 1.25rem;
   background: rgba(255, 255, 255, 0.72);
   border-top: 1px solid var(--hv-color-accent-soft);
+  border-radius: 1em;
   text-align: center;
 }
 
@@ -378,6 +963,14 @@ body.hv-drag-active * {
 
 .hv-upload-panel-shell {
   position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: auto;
 }
 
 .hv-dropzone-body {
@@ -489,28 +1082,6 @@ body.hv-drag-active * {
   word-break: break-word;
   font-size: var(--hv-font-size-raw);
   line-height: var(--hv-line-height-raw);
-}
-
-/* -------------------------------------------------------------------------- */
-/* Reset Controls                                                             */
-/* -------------------------------------------------------------------------- */
-.hv-reset-row {
-  margin-top: 20px;
-  margin-bottom: 4px;
-}
-
-.hv-reset-btn {
-  width: var(--hv-size-reset-btn);
-  height: var(--hv-size-reset-btn);
-  border-radius: 50%;
-  background-color: var(--hv-color-primary);
-  border-color: var(--hv-color-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  box-shadow: var(--hv-shadow-reset);
-  transition: var(--hv-transition-fast);
 }
 
 /* -------------------------------------------------------------------------- */

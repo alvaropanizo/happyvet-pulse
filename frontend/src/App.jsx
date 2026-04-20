@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Button, Card, Container, Modal } from "react-bootstrap";
+import { Button, Card, Modal } from "react-bootstrap";
 
 import DocumentPreview from "./components/DocumentPreview";
+import DocumentReviewRightPanel from "./components/DocumentReviewRightPanel";
+import DocumentReviewSplitLayout from "./components/DocumentReviewSplitLayout";
+import DocumentReviewToolbar from "./components/DocumentReviewToolbar";
+import AppShell from "./components/layout/AppShell";
 import MedicalRecordPanel from "./components/MedicalRecordPanel";
-import UploadPanel from "./components/UploadPanel";
+import UploadLandingSection from "./components/UploadLandingSection";
 import { getInitialMedicalRecordState } from "./data/medicalRecordState";
 import uiContent from "./data/uiContent.json";
 import { scanDocument } from "./hooks/uploadDocument";
@@ -18,7 +22,7 @@ function App() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState("");
   const [scanCompleted, setScanCompleted] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showRemoveFileConfirm, setShowRemoveFileConfirm] = useState(false);
 
   const handleFileSelected = (file) => {
     setSelectedFile(file);
@@ -38,7 +42,6 @@ function App() {
       const scannedRecord = await scanDocument(selectedFile);
       setMedicalRecord(scannedRecord);
       setScanCompleted(true);
-      setSelectedFile(null);
     } catch (error) {
       setScanError(error instanceof Error ? error.message : "Scan failed.");
     } finally {
@@ -47,131 +50,111 @@ function App() {
   };
 
   const currentStep = scanCompleted ? "structured" : selectedFile ? "preview" : "upload";
+  const showReviewSplit = Boolean(selectedFile);
 
-  const handleConfirmReset = () => {
-    setMedicalRecord(getInitialMedicalRecordState());
+  const handleConfirmRemoveFile = () => {
     setSelectedFile(null);
     setScanError("");
-    setIsScanning(false);
+    setShowRemoveFileConfirm(false);
     setScanCompleted(false);
-    setShowResetConfirm(false);
+    setMedicalRecord(getInitialMedicalRecordState());
   };
 
   return (
-    <main className="hv-app-page">
-      <Container className="hv-app-container">
-        <section>
+    <>
+      <AppShell
+        brandingAriaLabel={validatedUiContent.app.brandingAriaLabel}
+        footerContent={validatedUiContent.app.footer}
+        themeFabAriaLabel={validatedUiContent.app.themeFabAriaLabel}
+      >
+        <div key={showReviewSplit ? "review" : "upload"} className="hv-step-transition">
           {currentStep === "upload" ? (
-            <section className="hv-upload-screen">
-              <header className="hv-upload-header">
-                <div className="hv-upload-header-copy">
-                  <h1 className="h1 mb-0 hv-title hv-upload-header-title">
-                    <span>{validatedUiContent.app.uploadHeaderLine1Prefix}</span>{" "}
-                    <span className="hv-rotating-words" aria-label="Supported input types">
-                      {ROTATING_UPLOAD_WORDS.map((word) => (
-                        <span key={word} className="hv-rotating-word">{word}</span>
-                      ))}
-                    </span>
-                  </h1>
-                  <p className="mb-0 hv-upload-header-subtitle">
-                    {validatedUiContent.app.uploadHeaderLine2}
-                  </p>
-                </div>
-              </header>
-              <div className="hv-upload-corner-icon" aria-label="HappyVet Pulse">
-                <img src="/vetpulse-icon.svg" alt="" width="28" height="28" decoding="async" />
-              </div>
-              <div className="hv-upload-main">
-                <UploadPanel
-                  onFileSelected={handleFileSelected}
-                  content={validatedUiContent.uploadPanel}
-                />
-              </div>
-            </section>
+            <UploadLandingSection
+              onFileSelected={handleFileSelected}
+              uploadContent={validatedUiContent.uploadPanel}
+              uploadHeaderLine1Prefix={validatedUiContent.app.uploadHeaderLine1Prefix}
+              uploadHeaderLine2={validatedUiContent.app.uploadHeaderLine2}
+              rotatingWords={ROTATING_UPLOAD_WORDS}
+            />
           ) : null}
 
-          {currentStep === "preview" && selectedFile ? (
-            <>
-              <Card className="hv-card hv-card-spaced">
-                <Card.Body>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <h2 className="h6 mb-0 hv-title">
-                      {validatedUiContent.documentPreview.title}
-                    </h2>
-                    <Button type="button" className="hv-primary-btn" onClick={handleScan}>
-                      {validatedUiContent.uploadPanel.scanButton}
-                    </Button>
-                  </div>
-                  {isScanning ? (
-                    <p className="mt-2 mb-0 hv-info-text">
-                      {validatedUiContent.uploadPanel.scanningMessage}
-                    </p>
-                  ) : null}
-                  {scanError ? (
-                    <p className="mt-2 mb-0 hv-error-text">
-                      {validatedUiContent.uploadPanel.scanErrorPrefix} {scanError}
-                    </p>
-                  ) : null}
-                </Card.Body>
-              </Card>
-              <DocumentPreview file={selectedFile} content={validatedUiContent.documentPreview} />
-            </>
-          ) : null}
-
-          {currentStep === "structured" ? (
-            <>
-              <div className="d-flex justify-content-end hv-reset-row">
-                <Button
-                  type="button"
-                  aria-label={validatedUiContent.app.resetFlow.buttonAriaLabel}
-                  onClick={() => setShowResetConfirm(true)}
-                  className="hv-reset-btn"
+          {showReviewSplit ? (
+            <DocumentReviewSplitLayout
+              leftPaneTitle={null}
+              layoutAriaLabel={validatedUiContent.documentReviewLayout.layoutAriaLabel}
+              leftPane={
+                <div
+                  className={`hv-review-left-stack${scanCompleted ? " hv-review-left-stack--after-scan" : ""}`}
                 >
-                  <svg
-                    aria-hidden="true"
-                    viewBox="0 0 16 16"
-                    width="20"
-                    height="20"
-                    fill="currentColor"
-                  >
-                    <path d="M8 3a5 5 0 1 1-4.546 2.916.5.5 0 0 1 .908-.418A4 4 0 1 0 8 4h2.5a.5.5 0 0 1 0 1H7.5A.5.5 0 0 1 7 4.5v-3a.5.5 0 0 1 1 0V3z" />
-                  </svg>
-                </Button>
-              </div>
-              <MedicalRecordPanel
-                medicalRecord={medicalRecord}
-                content={validatedUiContent.app.medicalRecord}
-              />
-            </>
+                  <Card className="hv-card hv-card-spaced hv-review-left-card">
+                    <DocumentReviewToolbar
+                      file={selectedFile}
+                      scanButtonLabel={validatedUiContent.uploadPanel.scanButton}
+                      content={validatedUiContent.documentReviewToolbar}
+                      onScan={handleScan}
+                      onRemoveClick={() => setShowRemoveFileConfirm(true)}
+                      isScanning={isScanning}
+                      scanComplete={scanCompleted}
+                    />
+                    {scanError ? (
+                      <Card.Body className="hv-review-toolbar-card-error px-3 py-2">
+                        <p className="mb-0 small hv-error-text">
+                          {validatedUiContent.uploadPanel.scanErrorPrefix} {scanError}
+                        </p>
+                      </Card.Body>
+                    ) : null}
+                  </Card>
+                  <DocumentPreview
+                    file={selectedFile}
+                    content={validatedUiContent.documentPreview}
+                    embedded
+                  />
+                </div>
+              }
+              rightPane={
+                currentStep === "structured" ? (
+                  <div className="hv-review-right-stack">
+                    <MedicalRecordPanel
+                      medicalRecord={medicalRecord}
+                      content={validatedUiContent.app.medicalRecord}
+                    />
+                  </div>
+                ) : (
+                  <DocumentReviewRightPanel
+                    isScanning={isScanning}
+                    skeletonAriaLabel={validatedUiContent.documentReviewLayout.recordSkeletonAriaLabel}
+                    scanningAriaLabel={validatedUiContent.documentReviewLayout.scanningRightPanelAriaLabel}
+                  />
+                )
+              }
+            />
           ) : null}
-        </section>
-      </Container>
-      <Button type="button" className="hv-theme-fab" aria-label={validatedUiContent.app.themeFabAriaLabel}>
-        ◐
-      </Button>
-      <Modal show={showResetConfirm} onHide={() => setShowResetConfirm(false)} centered>
+        </div>
+      </AppShell>
+
+      <Modal show={showRemoveFileConfirm} onHide={() => setShowRemoveFileConfirm(false)} centered>
         <Modal.Header closeButton className="hv-modal-header">
           <Modal.Title className="hv-modal-title">
-            {validatedUiContent.app.resetFlow.confirmTitle}
+            {validatedUiContent.documentReviewToolbar.confirmRemoveTitle}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="hv-modal-body">
-          {validatedUiContent.app.resetFlow.confirmMessage}
+          {validatedUiContent.documentReviewToolbar.confirmRemoveMessage}
         </Modal.Body>
         <Modal.Footer className="hv-modal-footer">
           <Button
             variant="secondary"
             className="hv-modal-btn-min"
-            onClick={() => setShowResetConfirm(false)}
+            onClick={() => setShowRemoveFileConfirm(false)}
           >
-            {validatedUiContent.app.resetFlow.confirmNo}
+            {validatedUiContent.documentReviewToolbar.confirmRemoveNo}
           </Button>
-          <Button className="hv-primary-btn hv-modal-btn-min" onClick={handleConfirmReset}>
-            {validatedUiContent.app.resetFlow.confirmYes}
+          <Button className="hv-primary-btn hv-modal-btn-min" onClick={handleConfirmRemoveFile}>
+            {validatedUiContent.documentReviewToolbar.confirmRemoveYes}
           </Button>
         </Modal.Footer>
       </Modal>
-    </main>
+    </>
   );
 }
 

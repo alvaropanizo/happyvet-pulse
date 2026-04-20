@@ -14,6 +14,11 @@ function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
   );
 }
 
+/**
+ * Embedded PDF uses the browser’s native viewer (`<iframe>` + blob URL).
+ * Sidebar / thumbnail strip is drawn by Chromium/WebKit/etc. — not styleable via CSS.
+ * For a thumbnail-free or custom toolbar, integrate PDF.js (`pdfjs-dist` / `react-pdf`).
+ */
 function PdfPreview({ fileUrl, fileName, pdfTitlePrefix }) {
   return (
     <iframe
@@ -66,7 +71,7 @@ function UnsupportedFallback({ extension, unsupportedTitle, unsupportedFormatPre
   );
 }
 
-function DocumentPreview({ file, content }) {
+function DocumentPreview({ file, content, embedded = false }) {
   const [textPreview, setTextPreview] = useState("");
   const [textError, setTextError] = useState("");
 
@@ -95,6 +100,49 @@ function DocumentPreview({ file, content }) {
     reader.readAsText(file);
   }, [content.textReadError, file, isTxt]);
 
+  const mediaBlock = (
+    <>
+      {isImage ? (
+        <ImagePreview
+          fileUrl={fileUrl}
+          fileName={file.name}
+          imageAltPrefix={content.imageAltPrefix}
+        />
+      ) : null}
+
+      {isPdf ? <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} /> : null}
+
+      {isTxt ? <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} /> : null}
+
+      {isDocx ? (
+        <DocxFallback
+          fileName={file.name}
+          docxUnsupported={content.docxUnsupported}
+          fileSelectedPrefix={content.fileSelectedPrefix}
+        />
+      ) : null}
+
+      {previewType === PREVIEW_TYPES.UNSUPPORTED ? (
+        <UnsupportedFallback
+          extension={extension}
+          unsupportedTitle={content.unsupportedTitle}
+          unsupportedFormatPrefix={content.unsupportedFormatPrefix}
+        />
+      ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section className="hv-review-preview-embedded" aria-label={content.title}>
+        <header className="hv-review-preview-embedded-header">
+          <h2 className="h6 mb-0 hv-title">{content.title}</h2>
+        </header>
+        <div className="hv-review-preview-embedded-body">{mediaBlock}</div>
+      </section>
+    );
+  }
+
   return (
     <Card className="hv-card hv-card-spaced">
       <Card.Body>
@@ -102,33 +150,7 @@ function DocumentPreview({ file, content }) {
           {content.title}
         </h2>
 
-        {isImage ? (
-          <ImagePreview
-            fileUrl={fileUrl}
-            fileName={file.name}
-            imageAltPrefix={content.imageAltPrefix}
-          />
-        ) : null}
-
-        {isPdf ? <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} /> : null}
-
-        {isTxt ? <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} /> : null}
-
-        {isDocx ? (
-          <DocxFallback
-            fileName={file.name}
-            docxUnsupported={content.docxUnsupported}
-            fileSelectedPrefix={content.fileSelectedPrefix}
-          />
-        ) : null}
-
-        {previewType === PREVIEW_TYPES.UNSUPPORTED ? (
-          <UnsupportedFallback
-            extension={extension}
-            unsupportedTitle={content.unsupportedTitle}
-            unsupportedFormatPrefix={content.unsupportedFormatPrefix}
-          />
-        ) : null}
+        {mediaBlock}
       </Card.Body>
     </Card>
   );

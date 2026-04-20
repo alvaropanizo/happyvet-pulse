@@ -306,8 +306,24 @@ Polish the frontend experience and establish cleaner UI/text foundations that su
 - **`frontend/src/data/uiContent.json`:** upload keys include `primaryLabel`, `caption`, `footerSupportLine`, `samplePillsIntro`, `sampleFiles`, `dragOverlayHint`, header lines, `themeFabAriaLabel`, etc.  
 - **`frontend/src/utils/validateUiContent.js`:** string keys as before; **`uploadPanel.sampleFiles`** must be a non-empty array of objects each with non-empty **`fileName`**.
 
+**Document review flow updates (Milestone 5 latest slice)**  
+- **Single review split lifecycle:** once a file is selected, the app stays in the same review split container; scan completion no longer remounts the full page wrapper.  
+- **Left panel continuity after scan:** left column always keeps `DocumentReviewToolbar` + embedded `DocumentPreview`; it no longer swaps to a post-scan placeholder panel.  
+- **Scan CTA lifecycle in toolbar:**  
+  - idle: actionable **Scan** button with tooltip  
+  - scanning: button is disabled, greyed out, shows **Scanning** label + inline loading spinner  
+  - completed: button is replaced with **Scanned** status + green checkmark  
+- **Right panel behavior:** while scanning, right pane keeps scanning/skeleton state; after success, it transitions to `MedicalRecordPanel` without the previous full-step reload effect.  
+- **Reset removal:** the previous “Reset working page” action and confirmation modal were removed from the review flow.  
+- **File removal behavior:** confirming “remove file” now returns to upload and also resets scan completion + structured medical record state to initial defaults.  
+- **Component cleanup:** obsolete post-scan left placeholder component was removed; toolbar now owns scan progress/completion feedback.
+
 ### Testing and CI
 - Frontend tests: `frontend/src/App.test.jsx`, `frontend/src/contracts/medicalRecordContract.test.js`, `frontend/src/utils/filePreview.test.js`.  
+- Updated test expectations for the latest review flow:
+  - successful scan keeps document preview visible
+  - scanned status text appears in toolbar
+  - reset-flow tests/assertions removed
 - No backend API changes required for Milestone 5 UI-only deliverables; existing CI jobs unchanged.
 
 ### Next step
