@@ -18,22 +18,26 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 
 ![Milestone 2 Upload UI](docs/images/milestone2.png)
 
-#### Milestone 3 - Structured record baseline (in progress)
+#### Milestone 3 - Structured record baseline 
 - Backend medical-record schema + frontend read-only structured render.
 - Mock scan endpoint + Scan button to validate end-to-end model rendering.
 - CORS enabled for local FE dev origin.
 - Shared JSON Schema contract validation on both backend and frontend tests.
 
-#### Milestone 5 - UI polish + parsing-ready frontend framing (in progress)
+![Milestone 3 Upload UI](docs/images/milestone4.png)
+
+#### Milestone 4 - Document ingestion, parsing architecture, performance-first "Gatekeeper" strategy
+- Document ingestion with a swappable parsing architecture and a real scan ingestion path, then pivot to a performance-first "Gatekeeper" strategy for lower latency and leaner runtime.
+- Convert files into structured text and map into `MedicalRecordDraft`.
+- Add parsing integrity metadata in response.
+- Pivot from heavy ML OCR stack to a lean Gatekeeper routing system with fast-path parsing and Tesseract fallback.
+
+![Milestone 4 Upload UI](docs/images/milestone4-1.png)
+
+#### Milestone 5 - UI polish + parsing-ready frontend framing
 - Layered upload experience: marketing header (rotating “Convert …” line), large square dropzone (icon + title + caption), attached footer (support line + sample document pills as mock).
-- Full-page file drag: transparent highlight overlay, optional large hint text, `copy` cursor; dropzone and whole window accept the same file.
-- Styling in `theme.css` (CSS variables, `hv-*` classes); no `uiTheme.js`; no inline styles in JSX.
-- Content in `uiContent.json` with `validateUiContent.js` (including `uploadPanel.sampleFiles` as a non-empty `fileName` list).
-- Branding: `frontend/public/vetpulse-icon.svg` for top-left bubble and tab favicon (`index.html`).
-- Dark-mode control placeholder: floating action button (bottom-right, not wired yet).
 - Review panel evolution: `MedicalRecordPanel` migrated from read-only summary blocks to editable form controls with collapsible sections (patient, owner, timeline, problem list, reminders, raw extracted text).
 - Split-view behavior hardening: after scan, left/right columns remain height-bounded and each pane can scroll internally (instead of both growing with expanded form sections).
-- Image preview resilience: when image blobs/URLs fail, preview thumbnails now fall back to `https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg` to avoid broken-image UI.
 
 ---
 
