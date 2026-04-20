@@ -24,6 +24,17 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - CORS enabled for local FE dev origin.
 - Shared JSON Schema contract validation on both backend and frontend tests.
 
+#### Milestone 5 - UI polish + parsing-ready frontend framing (in progress)
+- Layered upload experience: marketing header (rotating “Convert …” line), large square dropzone (icon + title + caption), attached footer (support line + sample document pills as mock).
+- Full-page file drag: transparent highlight overlay, optional large hint text, `copy` cursor; dropzone and whole window accept the same file.
+- Styling in `theme.css` (CSS variables, `hv-*` classes); no `uiTheme.js`; no inline styles in JSX.
+- Content in `uiContent.json` with `validateUiContent.js` (including `uploadPanel.sampleFiles` as a non-empty `fileName` list).
+- Branding: `frontend/public/vetpulse-icon.svg` for top-left bubble and tab favicon (`index.html`).
+- Dark-mode control placeholder: floating action button (bottom-right, not wired yet).
+- Review panel evolution: `MedicalRecordPanel` migrated from read-only summary blocks to editable form controls with collapsible sections (patient, owner, timeline, problem list, reminders, raw extracted text).
+- Split-view behavior hardening: after scan, left/right columns remain height-bounded and each pane can scroll internally (instead of both growing with expanded form sections).
+- Image preview resilience: when image blobs/URLs fail, preview thumbnails now fall back to `https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg` to avoid broken-image UI.
+
 ---
 
 ## Standard Plan and Implementation Notes
@@ -95,8 +106,8 @@ Deliver first end-to-end upload vertical slice with robust UX and validation sig
     - upload loading/error states
   - UI consistency:
     - centralized strings (`uiContent.json`)
-    - centralized theme/tokens (`uiTheme.js`)
     - runtime UI content validation
+    - (Milestone 5+) visual tokens in `theme.css`; legacy `uiTheme.js` removed
   - Environment:
     - `BACKEND_API_BASE_URL` for frontend API target
 
@@ -252,3 +263,82 @@ Implement intelligent document ingestion with a swappable parsing architecture a
 
 ### Next step
 - Expand deterministic mapping beyond patient basics (timeline, reminders, problem list) while keeping raw extracted text visible as the reliable fallback for human review.
+
+## Milestone 5
+
+### Goal
+Polish the frontend experience and establish cleaner UI/text foundations that support the upcoming, better-structured parsing workflow—without changing backend contracts in this slice.
+
+### Scope
+- Refine the first upload step: layout, clinical-history messaging, drag-and-drop affordances, and optional sample-document hints.
+- Remove inline/hardcoded styling from JSX; centralize tokens and components in CSS.
+- Keep all copy and structured lists (including mock samples) in `uiContent.json` with runtime validation.
+- Preserve preview + scan + structured panel flows and existing tests.
+
+### Delivered / Implementation
+
+**Upload screen layout (`App.jsx` upload step)**  
+- **Header:** Two-line hero—line 1 is `Convert` plus CSS-animated rotating words (`files`, `documents`, `PDFs`, `docs`, `txt`, `images`); line 2 is `into clinical patient records`. Keys: `app.uploadHeaderLine1Prefix`, `app.uploadHeaderLine2`. Uses highlight color token where specified in `theme.css`.  
+- **Brand bubble (top-left):** Fixed-position circle showing `frontend/public/vetpulse-icon.svg` (`/vetpulse-icon.svg`).  
+- **Floating FAB (bottom-right):** Placeholder for future dark mode; label from `app.themeFabAriaLabel`.  
+- **Main drop area:** `UploadPanel` inside `hv-upload-main` (centered, uses most of the viewport height).
+
+**Dropzone (`UploadPanel.jsx` + `UploadDropzoneFooter.jsx` + `MaterialUploadIcon.jsx`)**  
+- Single **Card**: primary zone is **click + keyboard** (`Card.Body`, `role="button"`, Enter/Space opens file input)—no separate browse button.  
+- **Material-style upload icon** via inline SVG component (`MaterialUploadIcon.jsx`).  
+- **Copy:** `uploadPanel.primaryLabel` (title), `uploadPanel.caption` (subtitle under title).  
+- **Attached footer** (`UploadDropzoneFooter.jsx`): `footerSupportLine`, `samplePillsIntro`, and `sampleFiles` (array of `{ "fileName": "..." }`) rendered as small pills with a document glyph; clicks on the footer do not open the file picker (mock only until wired).  
+- **Hidden file input** unchanged; whole body still receives drag events on the card.
+
+**Full-window drag capture**  
+- While a **file** drag is active, a **fixed overlay** (`hv-page-drop-layer`, high z-index) covers the UI—including FAB and brand bubble—and accepts drop; inner rounded panel uses RGB + alpha tokens (`--hv-color-accent-soft-highlight-rgb`, `--hv-overlay-alpha`).  
+- Optional centered **hint** (`uploadPanel.dragOverlayHint`) with readable styling.  
+- `body.hv-drag-active` sets **`cursor: copy`** during drag.  
+- Avoid creating lower stacking contexts on the upload shell so the overlay stays on top (e.g. no stray `z-index` on wrappers that trap the overlay).
+
+**Styling**  
+- **`frontend/src/styles/theme.css`:** `:root` design tokens (colors, fonts, radii, shadows, overlay alpha, dropzone border); sections for layout, upload, preview, modal; class prefix `hv-`.  
+- **`frontend/src/main.jsx`:** import order Bootstrap → `theme.css`.  
+- **Removed:** `frontend/src/styles/uiTheme.js` (do not reintroduce).
+
+**Static assets**  
+- **`frontend/public/`:** files served at URL root (e.g. `/vetpulse-icon.svg`).  
+- **`frontend/index.html`:** `<link rel="icon" href="/vetpulse-icon.svg" type="image/svg+xml" />`.
+
+**UI content & validation**  
+- **`frontend/src/data/uiContent.json`:** upload keys include `primaryLabel`, `caption`, `footerSupportLine`, `samplePillsIntro`, `sampleFiles`, `dragOverlayHint`, header lines, `themeFabAriaLabel`, etc.  
+- **`frontend/src/utils/validateUiContent.js`:** string keys as before; **`uploadPanel.sampleFiles`** must be a non-empty array of objects each with non-empty **`fileName`**.
+
+**Document review flow updates (Milestone 5 latest slice)**  
+- **Single review split lifecycle:** once a file is selected, the app stays in the same review split container; scan completion no longer remounts the full page wrapper.  
+- **Left panel continuity after scan:** left column always keeps `DocumentReviewToolbar` + embedded `DocumentPreview`; it no longer swaps to a post-scan placeholder panel.  
+- **Scan CTA lifecycle in toolbar:**  
+  - idle: actionable **Scan** button with tooltip  
+  - scanning: button is disabled, greyed out, shows **Scanning** label + inline loading spinner  
+  - completed: button is replaced with **Scanned** status + green checkmark  
+- **Right panel behavior:** while scanning, right pane keeps scanning/skeleton state; after success, it transitions to `MedicalRecordPanel` without the previous full-step reload effect.  
+- **Reset removal:** the previous “Reset working page” action and confirmation modal were removed from the review flow.  
+- **File removal behavior:** confirming “remove file” now returns to upload and also resets scan completion + structured medical record state to initial defaults.  
+- **Component cleanup:** obsolete post-scan left placeholder component was removed; toolbar now owns scan progress/completion feedback.
+- **Editable structured form:** `MedicalRecordPanel` now keeps a local editable draft seeded from backend scan payload. Core scalar and nested fields are rendered as editable controls (`Form.Control` / `Form.Select`) rather than static text-only values.
+- **Current edit scope:** editable record metadata (`record_id`, `review.status`), patient/owner field values, recent timeline rows, problem rows, reminder rows, and raw extracted text in textarea form.
+- **Defensive shaping:** panel state normalizes partial backend payloads so missing optional fields do not break rendering.
+- **Right/left pane overflow behavior:** split view uses constrained pane heights with internal scrolling to keep left preview stable while long right-side forms remain fully accessible.
+- **JSX maintainability pass:** repeated rendering branches were reduced in several components (`App`, `DocumentPreview`, split layout and footer/layout helpers) while preserving behavior.
+
+### Testing and CI
+- Frontend tests: `frontend/src/App.test.jsx`, `frontend/src/contracts/medicalRecordContract.test.js`, `frontend/src/utils/filePreview.test.js`.  
+- Updated test expectations for the latest review flow:
+  - successful scan keeps document preview visible
+  - scanned status text appears in toolbar
+  - reset-flow tests/assertions removed
+- Additional milestone-5 updates validated in unit tests:
+  - form-based medical record values continue rendering after scan (form controls now queried by value where relevant)
+  - collapsible raw-text section remains present after scan while supporting editable textarea content
+- No backend API changes required for Milestone 5 UI-only deliverables; existing CI jobs unchanged.
+
+### Next step
+- Wire **sample pills** to real behaviors (e.g. load bundled fixtures or drive scan with sample paths).  
+- Implement **dark mode** behind the FAB and document theme tokens.  
+- Lift editable medical-record draft state from panel-local scope to app-level persistence + add save/approve API path.
+- Optional: add/update **screenshot** under `docs/images/` for Milestone 5 upload UI.

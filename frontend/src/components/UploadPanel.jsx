@@ -1,15 +1,17 @@
-import { useRef, useState } from "react";
-import { Button, Card } from "react-bootstrap";
+import { useEffect, useRef, useState } from "react";
+import { Card } from "react-bootstrap";
 
-import { sharedStyles, uploadStyles } from "../styles/uiTheme";
+import MaterialUploadIcon from "./icons/MaterialUploadIcon";
+import UploadDropzoneFooter from "./UploadDropzoneFooter";
 
 function UploadPanel({
   onFileSelected,
-  title,
   content,
 }) {
   const fileInputRef = useRef(null);
+  const dragDepthRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPageDragging, setIsPageDragging] = useState(false);
 
   const openFilePicker = () => fileInputRef.current?.click();
 
@@ -18,62 +20,127 @@ function UploadPanel({
     onFileSelected(file);
   };
 
-  return (
-    <section>
-      <h1 style={sharedStyles.mainTitle}>{title}</h1>
+  const handleDrop = (event) => {
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDragging(false);
+    setIsPageDragging(false);
+    handleFile(event.dataTransfer.files?.[0]);
+  };
 
+  const isFileDragEvent = (event) => {
+    return Array.from(event.dataTransfer?.types ?? []).includes("Files");
+  };
+
+  useEffect(() => {
+    const onWindowDragEnter = (event) => {
+      if (!isFileDragEvent(event)) return;
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setIsPageDragging(true);
+    };
+
+    const onWindowDragOver = (event) => {
+      if (!isFileDragEvent(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    };
+
+    const onWindowDragLeave = (event) => {
+      if (!isFileDragEvent(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) {
+        setIsPageDragging(false);
+        setIsDragging(false);
+      }
+    };
+
+    const onWindowDrop = (event) => {
+      if (!isFileDragEvent(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsPageDragging(false);
+      setIsDragging(false);
+    };
+
+    window.addEventListener("dragenter", onWindowDragEnter);
+    window.addEventListener("dragover", onWindowDragOver);
+    window.addEventListener("dragleave", onWindowDragLeave);
+    window.addEventListener("drop", onWindowDrop);
+
+    return () => {
+      window.removeEventListener("dragenter", onWindowDragEnter);
+      window.removeEventListener("dragover", onWindowDragOver);
+      window.removeEventListener("dragleave", onWindowDragLeave);
+      window.removeEventListener("drop", onWindowDrop);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("hv-drag-active", isPageDragging);
+    return () => {
+      document.body.classList.remove("hv-drag-active");
+    };
+  }, [isPageDragging]);
+
+  const handleDropzoneBodyKeyDown = (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openFilePicker();
+    }
+  };
+
+  return (
+    <section className="hv-upload-panel-shell">
+      {isPageDragging ? (
+        <div
+          className="hv-page-drop-layer"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDrop}
+          aria-hidden="true"
+        >
+          <div className="hv-page-drop-hint">
+            {content.dragOverlayHint}
+          </div>
+        </div>
+      ) : null}
       <Card
-        style={uploadStyles.getDropzoneCard(isDragging)}
-        onClick={openFilePicker}
-        onDrop={(event) => {
-          event.preventDefault();
-          setIsDragging(false);
-          handleFile(event.dataTransfer.files?.[0]);
-        }}
+        className={`hv-card hv-dropzone hv-upload-dropzone-card ${isDragging ? "is-dragging" : ""}`}
+        onDrop={handleDrop}
         onDragOver={(event) => {
           event.preventDefault();
           setIsDragging(true);
+          setIsPageDragging(true);
         }}
         onDragLeave={(event) => {
           event.preventDefault();
           setIsDragging(false);
         }}
       >
-        <Card.Body className="text-center py-5 px-4">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 16 16"
-            width="36"
-            height="36"
-            fill={uploadStyles.uploadIcon.color}
-            style={uploadStyles.uploadIcon}
-          >
-            <path d="M4.406 9.342A5.53 5.53 0 0 1 8 4.5a5.53 5.53 0 0 1 3.594 4.842A2.5 2.5 0 1 1 11.5 14h-7a2.5 2.5 0 1 1-.094-4.658zM8.5 7.5a.5.5 0 0 0-1 0v3.293L6.354 9.646a.5.5 0 1 0-.708.708l2 2 .007.007.007.006a.498.498 0 0 0 .7-.006l2-2a.5.5 0 0 0-.708-.708L8.5 10.793V7.5z" />
-          </svg>
-          <h2 className="h5 mt-3 mb-2" style={{ color: uploadStyles.uploadIcon.color }}>
-            {content.dropInstruction}
+        <Card.Body
+          className="text-center hv-dropzone-body"
+          role="button"
+          tabIndex={0}
+          onClick={openFilePicker}
+          onKeyDown={handleDropzoneBodyKeyDown}
+          aria-label={`${content.primaryLabel}. ${content.caption}`}
+        >
+          <MaterialUploadIcon className="hv-material-upload-icon" />
+          <h2 className="h4 mt-3 mb-2 hv-title hv-dropzone-title">
+            {content.primaryLabel}
           </h2>
-          <p className="mb-4" style={uploadStyles.bodyText}>
-            {content.supportNote}
+          <p className="mb-0 hv-upload-secondary hv-dropzone-caption">
+            {content.caption}
           </p>
-
-          <Button
-            type="button"
-            style={uploadStyles.button}
-            onClick={(event) => {
-              event.stopPropagation();
-              openFilePicker();
-            }}
-          >
-            {content.selectButton}
-          </Button>
         </Card.Body>
+        <UploadDropzoneFooter content={content} />
       </Card>
 
       <input
         ref={fileInputRef}
         type="file"
-        style={{ display: "none" }}
+        className="hv-hidden-input"
         onChange={(event) => handleFile(event.target.files?.[0])}
         aria-label={content.fileInputAriaLabel}
       />

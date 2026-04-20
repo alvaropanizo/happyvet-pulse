@@ -32,9 +32,20 @@ describe("App", () => {
   it("shows only upload panel on first load", () => {
     render(<App />);
 
-    expect(
-      screen.getByRole("heading", { name: uiContent.app.uploadTitle }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(uiContent.app.uploadHeaderLine1Prefix)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.app.uploadHeaderLine2)).toBeInTheDocument();
+    expect(screen.getByLabelText(uiContent.app.brandingAriaLabel)).toBeInTheDocument();
+    expect(screen.getByLabelText(uiContent.app.themeFabAriaLabel)).toBeInTheDocument();
+    expect(screen.getByText(/Created with love by/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: uiContent.app.footer.authorName })).toHaveAttribute(
+      "href",
+      uiContent.app.footer.authorUrl,
+    );
+    expect(screen.getByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.footerSupportLine)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.caption)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.samplePillsIntro)).toBeInTheDocument();
+    expect(screen.getByText(uiContent.uploadPanel.sampleFiles[0].fileName)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: uiContent.documentPreview.title })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
   });
@@ -50,11 +61,41 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton })).toBeInTheDocument();
     });
+    expect(screen.getByText(uiContent.documentReviewToolbar.addedFilesSummary)).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: uiContent.documentReviewLayout.recordSkeletonAriaLabel }),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(uiContent.documentPreview.title).length).toBeGreaterThan(0);
-    expect(screen.queryByRole("heading", { name: uiContent.app.uploadTitle })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).not.toBeInTheDocument();
   });
 
-  it("shows structured card and hides preview after successful scan", async () => {
+  it("returns to upload after confirming removal of selected file", async () => {
+    render(<App />);
+
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const file = new File(["demo"], "record.txt", { type: "text/plain" });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(uiContent.documentReviewToolbar.removeFileAriaLabel)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(uiContent.documentReviewToolbar.removeFileAriaLabel));
+
+    await waitFor(() => {
+      expect(screen.getByText(uiContent.documentReviewToolbar.confirmRemoveMessage)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: uiContent.documentReviewToolbar.confirmRemoveYes }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).toBeInTheDocument();
+    });
+    expect(screen.queryByText(uiContent.documentReviewToolbar.addedFilesSummary)).not.toBeInTheDocument();
+  });
+
+  it("shows structured card, keeps document preview, and scanned status after successful scan", async () => {
     global.fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -106,8 +147,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
-      expect(screen.getByText("MARLEY")).toBeInTheDocument();
-      expect(screen.getByText("rec_scan_001")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("MARLEY")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("rec_scan_001")).toBeInTheDocument();
     });
 
     const scanCallArgs = global.fetch.mock.calls[0];
@@ -115,7 +156,8 @@ describe("App", () => {
     expect(scanCallArgs[1].method).toBe("POST");
     expect(scanCallArgs[1].body).toBeInstanceOf(FormData);
     expect(scanCallArgs[1].body.get("file")).toBe(file);
-    expect(screen.queryByText(uiContent.documentPreview.title)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: uiContent.documentPreview.title })).toBeInTheDocument();
+    expect(screen.getByText(uiContent.documentReviewToolbar.scannedLabel)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: uiContent.app.medicalRecord.title })).toBeInTheDocument();
   });
 
@@ -195,77 +237,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
-      expect(screen.getByText("NALA")).toBeInTheDocument();
-      expect(screen.getByText("rec_nested_scan_001")).toBeInTheDocument();
-    });
-  });
-
-  it("shows reset confirmation modal and returns to upload step when confirmed", async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        medical_record: {
-          record_id: "rec_reset_001",
-          source_documents: [],
-          patient: {
-            name: { value: "ALYA", confidence: 0.99, edited: false },
-            species: { value: "Canino", confidence: 0.98, edited: false },
-            breed: { value: "Yorkshire", confidence: 0.97, edited: false },
-            sex: { value: "Hembra", confidence: 0.99, edited: false },
-            birth_date: { value: "2018-07-05", confidence: 0.9, edited: false },
-            chip_id: { value: "00023035139", confidence: 0.9, edited: false },
-            weight_kg: { value: "3.2", confidence: 0.8, edited: false },
-          },
-          owner: {
-            name: { value: "Owner", confidence: 0.9, edited: false },
-            address: { value: "Address", confidence: 0.8, edited: false },
-          },
-          timeline: [],
-          problem_list: [],
-          reminders: [],
-          review: {
-            status: "in_review",
-            edited_fields: [],
-            last_editor: "scan_service",
-            updated_at: null,
-          },
-        },
-        parsing_metadata: {
-          engine: "gatekeeper",
-          extraction_method: "fast_path",
-          latency_ms: 120,
-          extracted_char_count: 500,
-          meaningful_text: true,
-          integrity_score: 1,
-          reason: null,
-        },
-      }),
-    });
-
-    render(<App />);
-    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
-    const file = new File(["doc"], "scan-source.txt", { type: "text/plain" });
-    fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: uiContent.app.medicalRecord.title })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByLabelText(uiContent.app.resetFlow.buttonAriaLabel));
-    expect(screen.getByText(uiContent.app.resetFlow.confirmMessage)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: uiContent.app.resetFlow.confirmNo }));
-    await waitFor(() => {
-      expect(screen.queryByText(uiContent.app.resetFlow.confirmMessage)).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByLabelText(uiContent.app.resetFlow.buttonAriaLabel));
-    fireEvent.click(screen.getByRole("button", { name: uiContent.app.resetFlow.confirmYes }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: uiContent.app.uploadTitle })).toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: uiContent.app.medicalRecord.title })).not.toBeInTheDocument();
+      expect(screen.getByDisplayValue("NALA")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("rec_nested_scan_001")).toBeInTheDocument();
     });
   });
 

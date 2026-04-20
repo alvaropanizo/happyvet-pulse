@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
 from io import BytesIO
+from zipfile import ZipFile
+from html import unescape
 
 def extract_txt(content: bytes) -> str:
     return content.decode("utf-8", errors="replace").strip()
@@ -18,7 +21,24 @@ def extract_docx(content: bytes) -> str:
                 value = cell.text.strip()
                 if value:
                     chunks.append(value)
-    return "\n".join(chunks).strip()
+
+    extracted = "\n".join(chunks).strip()
+    if len(extracted) >= 150:
+        return extracted
+
+    # Fallback: some DOCX files keep visible text in XML runs (e.g. text boxes / headers)
+    # that may not be surfaced through python-docx paragraph/table collections.
+    xml_chunks: list[str] = []
+    with ZipFile(BytesIO(content)) as archive:
+        for name in archive.namelist():
+            if not name.startswith("word/") or not name.endswith(".xml"):
+                continue
+            xml_text = archive.read(name).decode("utf-8", errors="ignore")
+            run_texts = re.findall(r"<w:t[^>]*>(.*?)</w:t>", xml_text, flags=re.DOTALL)
+            if run_texts:
+                xml_chunks.extend(unescape(item).strip() for item in run_texts if item.strip())
+    fallback_text = "\n".join(xml_chunks).strip()
+    return fallback_text if len(fallback_text) > len(extracted) else extracted
 
 
 def extract_pdf_text_layer(content: bytes) -> str:

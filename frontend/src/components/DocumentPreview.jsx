@@ -1,55 +1,52 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "react-bootstrap";
 
+import FileQuickPreviewThumb from "./FileQuickPreviewThumb";
 import { PREVIEW_TYPES } from "../constants/previewTypes";
-import { previewStyles, sharedStyles, uiTheme } from "../styles/uiTheme";
 import { getFileExtension, getPreviewType } from "../utils/filePreview";
+
+const DEFAULT_IMAGE_THUMB_URL =
+  "https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg";
 
 function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
   return (
     <img
       src={fileUrl}
       alt={`${imageAltPrefix} ${fileName}`}
-      style={{
-        width: "100%",
-        maxHeight: uiTheme.preview.imageMaxHeight,
-        objectFit: "contain",
-        ...previewStyles.mediaBox,
+      className="hv-media-box hv-media-image"
+      onError={(event) => {
+        if (event.currentTarget.dataset.fallbackApplied === "true") return;
+        event.currentTarget.dataset.fallbackApplied = "true";
+        event.currentTarget.src = DEFAULT_IMAGE_THUMB_URL;
       }}
     />
   );
 }
 
+/**
+ * Embedded PDF uses the browser’s native viewer (`<iframe>` + blob URL).
+ * Sidebar / thumbnail strip is drawn by Chromium/WebKit/etc. — not styleable via CSS.
+ * For a thumbnail-free or custom toolbar, integrate PDF.js (`pdfjs-dist` / `react-pdf`).
+ */
 function PdfPreview({ fileUrl, fileName, pdfTitlePrefix }) {
   return (
     <iframe
       title={`${pdfTitlePrefix} ${fileName}`}
       src={fileUrl}
-      style={{
-        width: "100%",
-        height: uiTheme.preview.pdfHeight,
-        ...previewStyles.mediaBox,
-      }}
+      className="hv-media-box hv-media-pdf"
     />
   );
 }
 
 function TextPreview({ textError, textPreview, textLoading }) {
   return (
-    <div
-      style={{
-        ...previewStyles.mediaBox,
-        padding: uiTheme.preview.textPadding,
-        maxHeight: uiTheme.preview.textMaxHeight,
-        overflow: "auto",
-      }}
-    >
+    <div className="hv-media-box hv-media-text">
       {textError ? (
-        <p className="mb-0" style={previewStyles.errorText}>
+        <p className="mb-0 hv-error-text">
           {textError}
         </p>
       ) : (
-        <pre className="mb-0" style={{ whiteSpace: "pre-wrap", ...previewStyles.infoText }}>
+        <pre className="mb-0 hv-info-text hv-pre-wrap">
           {textPreview || textLoading}
         </pre>
       )}
@@ -59,16 +56,11 @@ function TextPreview({ textError, textPreview, textLoading }) {
 
 function DocxFallback({ fileName, docxUnsupported, fileSelectedPrefix }) {
   return (
-    <div
-      style={{
-        ...previewStyles.mediaBox,
-        padding: uiTheme.preview.fallbackPadding,
-      }}
-    >
-      <p className="mb-2" style={previewStyles.errorText}>
+    <div className="hv-media-box hv-fallback-box">
+      <p className="mb-2 hv-error-text">
         {docxUnsupported}
       </p>
-      <p className="mb-0" style={previewStyles.infoText}>
+      <p className="mb-0 hv-info-text">
         {fileSelectedPrefix} <strong>{fileName}</strong>
       </p>
     </div>
@@ -77,25 +69,18 @@ function DocxFallback({ fileName, docxUnsupported, fileSelectedPrefix }) {
 
 function UnsupportedFallback({ extension, unsupportedTitle, unsupportedFormatPrefix }) {
   return (
-    <div
-      style={{
-        border: `1px solid ${uiTheme.colors.primary}`,
-        borderRadius: uiTheme.radius.inner,
-        padding: uiTheme.preview.fallbackPadding,
-        backgroundColor: uiTheme.colors.white,
-      }}
-    >
-      <p className="mb-2" style={previewStyles.errorText}>
+    <div className="hv-unsupported-box">
+      <p className="mb-2 hv-error-text">
         {unsupportedTitle}
       </p>
-      <p className="mb-0" style={previewStyles.infoText}>
+      <p className="mb-0 hv-info-text">
         {unsupportedFormatPrefix} <strong>{extension || "unknown"}</strong>
       </p>
     </div>
   );
 }
 
-function DocumentPreview({ file, content }) {
+function DocumentPreview({ file, content, embedded = false }) {
   const [textPreview, setTextPreview] = useState("");
   const [textError, setTextError] = useState("");
 
@@ -124,40 +109,64 @@ function DocumentPreview({ file, content }) {
     reader.readAsText(file);
   }, [content.textReadError, file, isTxt]);
 
+  const mediaBlockByType = {
+    [PREVIEW_TYPES.IMAGE]: (
+      <ImagePreview fileUrl={fileUrl} fileName={file.name} imageAltPrefix={content.imageAltPrefix} />
+    ),
+    [PREVIEW_TYPES.PDF]: (
+      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+    ),
+    [PREVIEW_TYPES.TEXT]: (
+      <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} />
+    ),
+    [PREVIEW_TYPES.DOCX]: (
+      <DocxFallback
+        fileName={file.name}
+        docxUnsupported={content.docxUnsupported}
+        fileSelectedPrefix={content.fileSelectedPrefix}
+      />
+    ),
+    [PREVIEW_TYPES.UNSUPPORTED]: (
+      <UnsupportedFallback
+        extension={extension}
+        unsupportedTitle={content.unsupportedTitle}
+        unsupportedFormatPrefix={content.unsupportedFormatPrefix}
+      />
+    ),
+  };
+
+  const mediaBlock = mediaBlockByType[previewType] ?? null;
+
+  if (embedded) {
+    const embeddedBody = previewType === PREVIEW_TYPES.PDF ? (
+      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+    ) : (
+      <div className="hv-review-preview-thumb-stage">
+        <FileQuickPreviewThumb file={file} size="lg" />
+        <p className="mb-0 hv-review-preview-thumb-name" title={file.name}>
+          {file.name}
+        </p>
+      </div>
+    );
+
+    return (
+      <section className="hv-review-preview-embedded" aria-label={content.title}>
+        <header className="hv-review-preview-embedded-header">
+          <h2 className="h6 mb-0 hv-title">{content.title}</h2>
+        </header>
+        <div className="hv-review-preview-embedded-body">{embeddedBody}</div>
+      </section>
+    );
+  }
+
   return (
-    <Card style={previewStyles.card}>
+    <Card className="hv-card hv-card-spaced">
       <Card.Body>
-        <h2 className="h6" style={sharedStyles.panelTitle}>
+        <h2 className="h6 hv-title">
           {content.title}
         </h2>
 
-        {isImage ? (
-          <ImagePreview
-            fileUrl={fileUrl}
-            fileName={file.name}
-            imageAltPrefix={content.imageAltPrefix}
-          />
-        ) : null}
-
-        {isPdf ? <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} /> : null}
-
-        {isTxt ? <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} /> : null}
-
-        {isDocx ? (
-          <DocxFallback
-            fileName={file.name}
-            docxUnsupported={content.docxUnsupported}
-            fileSelectedPrefix={content.fileSelectedPrefix}
-          />
-        ) : null}
-
-        {previewType === PREVIEW_TYPES.UNSUPPORTED ? (
-          <UnsupportedFallback
-            extension={extension}
-            unsupportedTitle={content.unsupportedTitle}
-            unsupportedFormatPrefix={content.unsupportedFormatPrefix}
-          />
-        ) : null}
+        {mediaBlock}
       </Card.Body>
     </Card>
   );

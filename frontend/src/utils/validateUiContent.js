@@ -1,10 +1,11 @@
 const REQUIRED_PATHS = [
-  "app.uploadTitle",
-  "app.resetFlow.buttonAriaLabel",
-  "app.resetFlow.confirmTitle",
-  "app.resetFlow.confirmMessage",
-  "app.resetFlow.confirmYes",
-  "app.resetFlow.confirmNo",
+  "app.uploadHeaderLine1Prefix",
+  "app.uploadHeaderLine2",
+  "app.brandingAriaLabel",
+  "app.themeFabAriaLabel",
+  "app.footer.lead",
+  "app.footer.authorName",
+  "app.footer.authorUrl",
   "app.uploadResult.title",
   "app.uploadResult.fileNameLabel",
   "app.uploadResult.contentTypeLabel",
@@ -36,18 +37,31 @@ const REQUIRED_PATHS = [
   "app.medicalRecord.statusLabel",
   "app.medicalRecord.clinicLabel",
   "app.medicalRecord.dueDateLabel",
-  "uploadPanel.dropInstruction",
-  "uploadPanel.supportNote",
-  "uploadPanel.selectButton",
+  "uploadPanel.primaryLabel",
+  "uploadPanel.caption",
+  "uploadPanel.footerSupportLine",
+  "uploadPanel.samplePillsIntro",
+  "uploadPanel.dragOverlayHint",
   "uploadPanel.scanButton",
   "uploadPanel.fileInputAriaLabel",
   "uploadPanel.selectedPrefix",
   "uploadPanel.uploadingMessage",
   "uploadPanel.uploadErrorPrefix",
-  "uploadPanel.scanningMessage",
   "uploadPanel.scanErrorPrefix",
-  "recentDocumentsPanel.title",
-  "recentDocumentsPanel.emptyState",
+  "documentReviewLayout.leftPaneTitle",
+  "documentReviewLayout.layoutAriaLabel",
+  "documentReviewLayout.recordSkeletonAriaLabel",
+  "documentReviewLayout.scanningRightPanelAriaLabel",
+  "documentReviewToolbar.addedFilesSummary",
+  "documentReviewToolbar.badgeLetter",
+  "documentReviewToolbar.scannedLabel",
+  "documentReviewToolbar.scanningButtonLabel",
+  "documentReviewToolbar.scanButtonTooltip",
+  "documentReviewToolbar.removeFileAriaLabel",
+  "documentReviewToolbar.confirmRemoveTitle",
+  "documentReviewToolbar.confirmRemoveMessage",
+  "documentReviewToolbar.confirmRemoveYes",
+  "documentReviewToolbar.confirmRemoveNo",
   "documentPreview.title",
   "documentPreview.imageAltPrefix",
   "documentPreview.pdfTitlePrefix",
@@ -59,8 +73,31 @@ const REQUIRED_PATHS = [
   "documentPreview.unsupportedFormatPrefix",
 ];
 
+const SAMPLE_FILES_PATH = "uploadPanel.sampleFiles";
+
 function getValueFromPath(object, path) {
   return path.split(".").reduce((accumulator, key) => accumulator?.[key], object);
+}
+
+function validateSampleFiles(uiContent) {
+  const sampleFiles = getValueFromPath(uiContent, SAMPLE_FILES_PATH);
+  if (!Array.isArray(sampleFiles) || sampleFiles.length === 0) {
+    throw new Error(`Invalid uiContent.json. ${SAMPLE_FILES_PATH} must be a non-empty array.`);
+  }
+
+  const invalidEntry = sampleFiles.find(
+    (entry) =>
+      !entry ||
+      typeof entry !== "object" ||
+      typeof entry.fileName !== "string" ||
+      entry.fileName.trim() === "",
+  );
+
+  if (invalidEntry) {
+    throw new Error(
+      `Invalid uiContent.json. Each ${SAMPLE_FILES_PATH} entry must be an object with a non-empty fileName string.`,
+    );
+  }
 }
 
 export function validateUiContent(uiContent) {
@@ -74,6 +111,8 @@ export function validateUiContent(uiContent) {
       `Invalid uiContent.json. Missing/empty required keys: ${missingPaths.join(", ")}`,
     );
   }
+
+  validateSampleFiles(uiContent);
 
   return uiContent;
 }

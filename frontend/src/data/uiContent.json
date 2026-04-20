@@ -1,12 +1,13 @@
 {
   "app": {
-    "uploadTitle": "Upload medical record documents",
-    "resetFlow": {
-      "buttonAriaLabel": "Reset working page",
-      "confirmTitle": "Reset current page",
-      "confirmMessage": "You will loose changes in your working page, are you sure",
-      "confirmYes": "Yes",
-      "confirmNo": "No"
+    "uploadHeaderLine1Prefix": "Convert",
+    "uploadHeaderLine2": "into clinical patient records",
+    "brandingAriaLabel": "HappyVet Pulse",
+    "themeFabAriaLabel": "Toggle dark mode (coming soon)",
+    "footer": {
+      "lead": "Created with love by ",
+      "authorName": "Alvaro Panizo",
+      "authorUrl": "https://alvaropanizo.github.io/portfolio/"
     },
     "uploadResult": {
       "title": "Upload result metadata",
@@ -45,20 +46,40 @@
     }
   },
   "uploadPanel": {
-    "dropInstruction": "Drop file here or click to select",
-    "supportNote": "Supported now: single file selection for the upcoming upload flow.",
-    "selectButton": "Select file",
+    "primaryLabel": "Upload clinical history to create patient record",
+    "caption": "One pet per upload. We'll automatically build the timeline from the document.",
+    "footerSupportLine": "Support for PDFs, images, and text docs from any veterinary clinic",
+    "samplePillsIntro": "Don't have a document? try one of our samples:",
+    "sampleFiles": [
+      { "fileName": "clinical_history1.txt" },
+      { "fileName": "marley_record.pdf" },
+      { "fileName": "visit_notes.docx" }
+    ],
+    "dragOverlayHint": "Drop file anywhere to upload",
     "scanButton": "Scan",
     "fileInputAriaLabel": "File selector",
     "selectedPrefix": "Selected:",
     "uploadingMessage": "Uploading file to API...",
     "uploadErrorPrefix": "Upload error:",
-    "scanningMessage": "Scanning document into structured record...",
     "scanErrorPrefix": "Scan error:"
   },
-  "recentDocumentsPanel": {
-    "title": "Last uploaded documents",
-    "emptyState": "No documents uploaded yet."
+  "documentReviewLayout": {
+    "leftPaneTitle": "Scan document",
+    "layoutAriaLabel": "Document scan and preview",
+    "recordSkeletonAriaLabel": "Clinical record preview will appear here after scan",
+    "scanningRightPanelAriaLabel": "Scan in progress, building clinical record"
+  },
+  "documentReviewToolbar": {
+    "addedFilesSummary": "Added 1 file",
+    "badgeLetter": "1",
+    "scannedLabel": "Scanned",
+    "scanningButtonLabel": "Scanning",
+    "scanButtonTooltip": "Scan the document to pull data into a patient clinical record",
+    "removeFileAriaLabel": "Remove file and return to upload",
+    "confirmRemoveTitle": "Remove file?",
+    "confirmRemoveMessage": "Are you sure? The file will be removed and you will return to the upload step.",
+    "confirmRemoveYes": "Yes, remove",
+    "confirmRemoveNo": "Cancel"
   },
   "documentPreview": {
     "title": "Document preview",
