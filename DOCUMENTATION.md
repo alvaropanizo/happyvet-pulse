@@ -39,6 +39,8 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - Review panel evolution: `MedicalRecordPanel` migrated from read-only summary blocks to editable form controls with collapsible sections (patient, owner, timeline, problem list, reminders, raw extracted text).
 - Split-view behavior hardening: after scan, left/right columns remain height-bounded and each pane can scroll internally (instead of both growing with expanded form sections).
 
+![Milestone 5 Upload UI](docs/images/milestone5.png)
+
 ---
 
 ## Standard Plan and Implementation Notes
