@@ -49,7 +49,7 @@ test("selects a file, scans it, and shows structured record card", async ({ page
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Upload medical record documents" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Upload clinical history to create patient record" })).toBeVisible();
 
   await page.setInputFiles('input[aria-label="File selector"]', {
     name: "record.txt",
@@ -61,7 +61,7 @@ test("selects a file, scans it, and shows structured record card", async ({ page
   await page.getByRole("button", { name: "Scan" }).click();
 
   await expect(page.getByRole("heading", { name: "Medical record draft (read-only)" })).toBeVisible();
-  await expect(page.getByText("LUNA")).toBeVisible();
+  await expect(page.getByText("Name: LUNA")).toBeVisible();
   await expect(page.getByText("rec_scan_mock_001")).toBeVisible();
   await expect(page.getByText("Scanned")).toBeVisible();
 });

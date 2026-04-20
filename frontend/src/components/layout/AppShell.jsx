@@ -3,10 +3,12 @@ import { Button, Container } from "react-bootstrap";
 import SiteFooter from "./SiteFooter";
 
 function AppShell({ children, brandingAriaLabel, footerContent, themeFabAriaLabel }) {
+  const brandingIconSrc = "/vetpulse-icon.svg";
+
   return (
     <main className="hv-app-page">
       <div className="hv-app-branding-icon" aria-label={brandingAriaLabel}>
-        <img src="/vetpulse-icon.svg" alt="" width="28" height="28" decoding="async" />
+        <img src={brandingIconSrc} alt="" width="28" height="28" decoding="async" />
       </div>
 
       <div className="hv-app-stack">

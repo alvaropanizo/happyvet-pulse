@@ -31,6 +31,9 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - Content in `uiContent.json` with `validateUiContent.js` (including `uploadPanel.sampleFiles` as a non-empty `fileName` list).
 - Branding: `frontend/public/vetpulse-icon.svg` for top-left bubble and tab favicon (`index.html`).
 - Dark-mode control placeholder: floating action button (bottom-right, not wired yet).
+- Review panel evolution: `MedicalRecordPanel` migrated from read-only summary blocks to editable form controls with collapsible sections (patient, owner, timeline, problem list, reminders, raw extracted text).
+- Split-view behavior hardening: after scan, left/right columns remain height-bounded and each pane can scroll internally (instead of both growing with expanded form sections).
+- Image preview resilience: when image blobs/URLs fail, preview thumbnails now fall back to `https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg` to avoid broken-image UI.
 
 ---
 
@@ -317,6 +320,11 @@ Polish the frontend experience and establish cleaner UI/text foundations that su
 - **Reset removal:** the previous “Reset working page” action and confirmation modal were removed from the review flow.  
 - **File removal behavior:** confirming “remove file” now returns to upload and also resets scan completion + structured medical record state to initial defaults.  
 - **Component cleanup:** obsolete post-scan left placeholder component was removed; toolbar now owns scan progress/completion feedback.
+- **Editable structured form:** `MedicalRecordPanel` now keeps a local editable draft seeded from backend scan payload. Core scalar and nested fields are rendered as editable controls (`Form.Control` / `Form.Select`) rather than static text-only values.
+- **Current edit scope:** editable record metadata (`record_id`, `review.status`), patient/owner field values, recent timeline rows, problem rows, reminder rows, and raw extracted text in textarea form.
+- **Defensive shaping:** panel state normalizes partial backend payloads so missing optional fields do not break rendering.
+- **Right/left pane overflow behavior:** split view uses constrained pane heights with internal scrolling to keep left preview stable while long right-side forms remain fully accessible.
+- **JSX maintainability pass:** repeated rendering branches were reduced in several components (`App`, `DocumentPreview`, split layout and footer/layout helpers) while preserving behavior.
 
 ### Testing and CI
 - Frontend tests: `frontend/src/App.test.jsx`, `frontend/src/contracts/medicalRecordContract.test.js`, `frontend/src/utils/filePreview.test.js`.  
@@ -324,9 +332,13 @@ Polish the frontend experience and establish cleaner UI/text foundations that su
   - successful scan keeps document preview visible
   - scanned status text appears in toolbar
   - reset-flow tests/assertions removed
+- Additional milestone-5 updates validated in unit tests:
+  - form-based medical record values continue rendering after scan (form controls now queried by value where relevant)
+  - collapsible raw-text section remains present after scan while supporting editable textarea content
 - No backend API changes required for Milestone 5 UI-only deliverables; existing CI jobs unchanged.
 
 ### Next step
 - Wire **sample pills** to real behaviors (e.g. load bundled fixtures or drive scan with sample paths).  
 - Implement **dark mode** behind the FAB and document theme tokens.  
+- Lift editable medical-record draft state from panel-local scope to app-level persistence + add save/approve API path.
 - Optional: add/update **screenshot** under `docs/images/` for Milestone 5 upload UI.

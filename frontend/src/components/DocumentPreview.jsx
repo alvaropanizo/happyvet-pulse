@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "react-bootstrap";
 
+import FileQuickPreviewThumb from "./FileQuickPreviewThumb";
 import { PREVIEW_TYPES } from "../constants/previewTypes";
 import { getFileExtension, getPreviewType } from "../utils/filePreview";
+
+const DEFAULT_IMAGE_THUMB_URL =
+  "https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg";
 
 function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
   return (
@@ -10,6 +14,11 @@ function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
       src={fileUrl}
       alt={`${imageAltPrefix} ${fileName}`}
       className="hv-media-box hv-media-image"
+      onError={(event) => {
+        if (event.currentTarget.dataset.fallbackApplied === "true") return;
+        event.currentTarget.dataset.fallbackApplied = "true";
+        event.currentTarget.src = DEFAULT_IMAGE_THUMB_URL;
+      }}
     />
   );
 }
@@ -100,45 +109,52 @@ function DocumentPreview({ file, content, embedded = false }) {
     reader.readAsText(file);
   }, [content.textReadError, file, isTxt]);
 
-  const mediaBlock = (
-    <>
-      {isImage ? (
-        <ImagePreview
-          fileUrl={fileUrl}
-          fileName={file.name}
-          imageAltPrefix={content.imageAltPrefix}
-        />
-      ) : null}
+  const mediaBlockByType = {
+    [PREVIEW_TYPES.IMAGE]: (
+      <ImagePreview fileUrl={fileUrl} fileName={file.name} imageAltPrefix={content.imageAltPrefix} />
+    ),
+    [PREVIEW_TYPES.PDF]: (
+      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+    ),
+    [PREVIEW_TYPES.TEXT]: (
+      <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} />
+    ),
+    [PREVIEW_TYPES.DOCX]: (
+      <DocxFallback
+        fileName={file.name}
+        docxUnsupported={content.docxUnsupported}
+        fileSelectedPrefix={content.fileSelectedPrefix}
+      />
+    ),
+    [PREVIEW_TYPES.UNSUPPORTED]: (
+      <UnsupportedFallback
+        extension={extension}
+        unsupportedTitle={content.unsupportedTitle}
+        unsupportedFormatPrefix={content.unsupportedFormatPrefix}
+      />
+    ),
+  };
 
-      {isPdf ? <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} /> : null}
-
-      {isTxt ? <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} /> : null}
-
-      {isDocx ? (
-        <DocxFallback
-          fileName={file.name}
-          docxUnsupported={content.docxUnsupported}
-          fileSelectedPrefix={content.fileSelectedPrefix}
-        />
-      ) : null}
-
-      {previewType === PREVIEW_TYPES.UNSUPPORTED ? (
-        <UnsupportedFallback
-          extension={extension}
-          unsupportedTitle={content.unsupportedTitle}
-          unsupportedFormatPrefix={content.unsupportedFormatPrefix}
-        />
-      ) : null}
-    </>
-  );
+  const mediaBlock = mediaBlockByType[previewType] ?? null;
 
   if (embedded) {
+    const embeddedBody = previewType === PREVIEW_TYPES.PDF ? (
+      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+    ) : (
+      <div className="hv-review-preview-thumb-stage">
+        <FileQuickPreviewThumb file={file} size="lg" />
+        <p className="mb-0 hv-review-preview-thumb-name" title={file.name}>
+          {file.name}
+        </p>
+      </div>
+    );
+
     return (
       <section className="hv-review-preview-embedded" aria-label={content.title}>
         <header className="hv-review-preview-embedded-header">
           <h2 className="h6 mb-0 hv-title">{content.title}</h2>
         </header>
-        <div className="hv-review-preview-embedded-body">{mediaBlock}</div>
+        <div className="hv-review-preview-embedded-body">{embeddedBody}</div>
       </section>
     );
   }

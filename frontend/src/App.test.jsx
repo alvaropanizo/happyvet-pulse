@@ -147,8 +147,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
-      expect(screen.getByText("MARLEY")).toBeInTheDocument();
-      expect(screen.getByText("rec_scan_001")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("MARLEY")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("rec_scan_001")).toBeInTheDocument();
     });
 
     const scanCallArgs = global.fetch.mock.calls[0];
@@ -237,8 +237,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
 
     await waitFor(() => {
-      expect(screen.getByText("NALA")).toBeInTheDocument();
-      expect(screen.getByText("rec_nested_scan_001")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("NALA")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("rec_nested_scan_001")).toBeInTheDocument();
     });
   });
 

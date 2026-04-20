@@ -15,19 +15,20 @@ function DocumentPillIcon() {
 
 function UploadDropzoneFooter({ content }) {
   const samples = Array.isArray(content.sampleFiles) ? content.sampleFiles : [];
+  const stopPropagation = (event) => event.stopPropagation();
 
   return (
     <footer
       className="hv-dropzone-attached-footer"
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => event.stopPropagation()}
+      onClick={stopPropagation}
+      onKeyDown={stopPropagation}
     >
       <p className="hv-dropzone-footer-support mb-0">{content.footerSupportLine}</p>
       <div className="hv-dropzone-footer-samples">
         <p className="hv-dropzone-footer-intro mb-0">{content.samplePillsIntro}</p>
         <ul className="hv-dropzone-pill-list list-unstyled d-flex flex-wrap gap-2 mb-0 justify-content-center">
-          {samples.map((item) => (
-            <li key={item.fileName}>
+          {samples.map((item, index) => (
+            <li key={item.fileName || `sample-file-${index}`}>
               <button
                 type="button"
                 className="hv-sample-pill"

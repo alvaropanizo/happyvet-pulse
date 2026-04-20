@@ -57,7 +57,7 @@ for (const fixtureFile of FIXTURE_FILES) {
     test.skip(!hasBackend, "Backend is not running on http://127.0.0.1:8000");
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Upload medical record documents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Upload clinical history to create patient record" })).toBeVisible();
 
     await page.setInputFiles('input[aria-label="File selector"]', fixtureFile.filePath);
     await expect(page.getByRole("button", { name: "Scan" })).toBeVisible();

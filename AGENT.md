@@ -65,12 +65,23 @@ Build a lean Human-in-the-Loop Intelligent Document Processing (IDP) system for 
         previewTypes.js
       /components
         DocumentPreview.jsx
+        FileQuickPreviewThumb.jsx
         MedicalRecordPanel.jsx
-        MaterialUploadIcon.jsx
         RecentDocumentsPanel.jsx
+        StructuredRecordSkeleton.jsx
+        DocumentReviewSplitLayout.jsx
+        DocumentReviewToolbar.jsx
+        DocumentReviewRightPanel.jsx
         UploadDropzoneFooter.jsx
         UploadPanel.jsx
+        UploadLandingSection.jsx
         UploadResultCard.jsx
+        /icons
+          MaterialUploadIcon.jsx
+          ArrowForwardIcon.jsx
+        /layout
+          AppShell.jsx
+          SiteFooter.jsx
       /data
         medicalRecordEmptyState.js
         medicalRecordMockData.js
@@ -536,6 +547,35 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - `frontend/src/utils/validateUiContent.js`
   - `frontend/src/App.test.jsx`
   - `frontend/tests/e2e/upload-smoke.spec.js`
+
+### Milestone 5 Latest UI/Form Decisions (Current)
+
+- **MedicalRecordPanel is now editable-first:**
+  - `frontend/src/components/MedicalRecordPanel.jsx` renders backend-derived data as editable `Form.Control` / `Form.Select` fields (instead of read-only summary text rows).
+  - Panel keeps a local normalized draft seeded from scan payload and resilient to partial/missing backend fields.
+  - Current editable scope includes:
+    - `record_id`
+    - `review.status`
+    - patient + owner field values
+    - recent timeline rows
+    - problem rows
+    - reminder rows
+    - raw extracted text textarea
+  - Confidence metadata may still exist in payload but is intentionally hidden in UI for this slice.
+
+- **Split layout overflow/height behavior:**
+  - Post-scan, review split should remain height-bounded (no column growth from expanded accordions).
+  - Left and right panes are expected to scroll internally in their pane body area when content exceeds available height.
+  - Keep left preview + toolbar stable/visible while right form can grow via internal scroll.
+
+- **Image preview fallback rule:**
+  - For image preview/thumbnails (`DocumentPreview`, `FileQuickPreviewThumb`), when image load fails use:
+    - `https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg`
+  - Guard fallback swap to avoid infinite `onError` loops.
+
+- **Frontend maintainability sweep (Milestone 5):**
+  - Prefer small render helpers and reduced branch duplication in JSX (`App`, `DocumentPreview`, split/layout/footer components).
+  - Preserve behavior and accessibility semantics while refactoring structure.
 
 ## How to Update Docs Each Milestone
 
