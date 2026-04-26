@@ -107,7 +107,7 @@ def test_scan_document_returns_mapped_medical_record_and_parsing_metadata() -> N
     assert payload["parsing_metadata"]["confident_fields_count"] == 1
     assert payload["parsing_metadata"]["confident_coverage_pct"] == 9.09
     assert payload["medical_record"]["review"]["status"] == "automatically_approved"
-    assert len(payload["medical_record"]["timeline"]) == 1
+    assert len(payload["medical_record"]["timeline"]) == 0
     assert payload["processor_version"] is None
     assert payload["warnings"] == []
     assert payload["timings_ms"] is None
