@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import UploadFile
 
@@ -57,7 +57,7 @@ def map_markdown_to_medical_record(
     in `source_documents[].raw_text` for the next LLM refinement step.
     """
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     document_id_seed = f"{file.filename or 'document'}_{now.isoformat()}"
     document_id = hashlib.sha256(document_id_seed.encode("utf-8")).hexdigest()[:12]
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from dateparser.search import search_dates
 
@@ -161,7 +161,10 @@ def extract_diagnoses(lines: list[str]) -> list[Diagnosis]:
 def extract_treatments(lines: list[str]) -> list[Treatment]:
     treatments: list[Treatment] = []
     for line in lines:
-        if best_fuzzy_ratio(line.lower(), ("treatment", "medication", "medicacion", "medicación", "dose", "dosis")) >= 84:
+        if best_fuzzy_ratio(
+            line.lower(),
+            ("treatment", "tratamiento", "medication", "medicacion", "medicación", "dose", "dosis"),
+        ) >= 84:
             payload = extract_rhs_or_self(line)
             if payload:
                 treatments.append(Treatment(medication=payload))
@@ -171,7 +174,7 @@ def extract_treatments(lines: list[str]) -> list[Treatment]:
 def extract_tests(lines: list[str]) -> list[TestResult]:
     tests: list[TestResult] = []
     for line in lines:
-        if best_fuzzy_ratio(line.lower(), ("test", "lab", "analitica", "analítica", "blood", "exam")) >= 84:
+        if best_fuzzy_ratio(line.lower(), ("test", "prueba", "lab", "analitica", "analítica", "blood", "exam")) >= 84:
             payload = extract_rhs_or_self(line)
             if payload:
                 tests.append(TestResult(test_name=payload))
@@ -212,7 +215,7 @@ def extract_event_payload(lines: list[str]) -> tuple[str | None, list[str], list
             continue
         if re.match(r"^\s*(treatment|medication|medicacion|medicación|dose|dosis)\s*[:\-]", lowered):
             continue
-        if re.match(r"^\s*(test|lab|analitica|analítica|exam|blood)\s*[:\-]", lowered):
+        if re.match(r"^\s*(test|prueba|lab|analitica|analítica|exam|blood)\s*[:\-]", lowered):
             continue
 
         if re.match(r"^\s*anamnesis\s*[:\-]", lowered):
@@ -426,7 +429,7 @@ def is_past_date(value: str | None) -> bool:
         date_value = datetime.fromisoformat(value).date()
     except ValueError:
         return False
-    return date_value < datetime.now(UTC).date()
+    return date_value < datetime.now(timezone.utc).date()
 
 
 def infer_timeline_event_status(event: TimelineEvent) -> str:
