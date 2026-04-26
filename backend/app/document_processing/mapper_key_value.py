@@ -63,11 +63,12 @@ def match_alias_score(key_norm: str, aliases: tuple[str, ...]) -> float:
 
 def extract_from_parsed(pairs: list[ParsedKeyValue], alias_key: str) -> tuple[str | None, float]:
     aliases = KEY_ALIASES.get(alias_key, ())
+    min_alias_score = 0.95 if alias_key in {"owner_name", "owner_surname"} else 0.83
     best_value: str | None = None
     best_score = 0.0
     for pair in pairs:
         alias_score = match_alias_score(pair.key_norm, aliases)
-        if alias_score < 0.83:
+        if alias_score < min_alias_score:
             continue
         candidate = sanitize_extracted_value(pair.value_raw)
         if not candidate or looks_like_field_label(candidate) or looks_noisy_capture(candidate):
@@ -82,13 +83,14 @@ def extract_from_parsed(pairs: list[ParsedKeyValue], alias_key: str) -> tuple[st
 
 def extract_from_parsed_with_provenance(pairs: list[ParsedKeyValue], alias_key: str) -> dict:
     aliases = KEY_ALIASES.get(alias_key, ())
+    min_alias_score = 0.95 if alias_key in {"owner_name", "owner_surname"} else 0.83
     best_pair: ParsedKeyValue | None = None
     best_value: str | None = None
     best_score = 0.0
     best_alias_score = 0.0
     for pair in pairs:
         alias_score = match_alias_score(pair.key_norm, aliases)
-        if alias_score < 0.83:
+        if alias_score < min_alias_score:
             continue
         candidate = sanitize_extracted_value(pair.value_raw)
         if not candidate or looks_like_field_label(candidate) or looks_noisy_capture(candidate):
