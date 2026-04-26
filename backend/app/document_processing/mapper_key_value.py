@@ -67,6 +67,8 @@ def extract_from_parsed(pairs: list[ParsedKeyValue], alias_key: str) -> tuple[st
     best_value: str | None = None
     best_score = 0.0
     for pair in pairs:
+        if not _is_key_candidate_for_alias(alias_key, pair.key_norm):
+            continue
         alias_score = match_alias_score(pair.key_norm, aliases)
         if alias_score < min_alias_score:
             continue
@@ -89,6 +91,8 @@ def extract_from_parsed_with_provenance(pairs: list[ParsedKeyValue], alias_key: 
     best_score = 0.0
     best_alias_score = 0.0
     for pair in pairs:
+        if not _is_key_candidate_for_alias(alias_key, pair.key_norm):
+            continue
         alias_score = match_alias_score(pair.key_norm, aliases)
         if alias_score < min_alias_score:
             continue
@@ -120,3 +124,13 @@ def extract_from_parsed_with_provenance(pairs: list[ParsedKeyValue], alias_key: 
         "line_index": best_pair.line_index,
         "match_type": match_type,
     }
+
+
+def _is_key_candidate_for_alias(alias_key: str, key_norm: str) -> bool:
+    if alias_key == "owner_name":
+        owner_markers = ("owner", "propietario", "tutor", "account", "holder", "representative")
+        return any(marker in key_norm for marker in owner_markers)
+    if alias_key == "owner_surname":
+        surname_markers = ("owner_surname", "surname", "apellido")
+        return any(marker in key_norm for marker in surname_markers)
+    return True

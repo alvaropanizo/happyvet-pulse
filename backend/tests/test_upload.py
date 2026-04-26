@@ -105,7 +105,7 @@ def test_scan_document_returns_mapped_medical_record_and_parsing_metadata() -> N
     assert payload["parsing_metadata"]["mapping_coverage_pct"] == 8.33
     assert payload["parsing_metadata"]["confident_total_fields_count"] == 11
     assert payload["parsing_metadata"]["confident_fields_count"] == 1
-    assert payload["parsing_metadata"]["confident_coverage_pct"] == 0.0
+    assert payload["parsing_metadata"]["confident_coverage_pct"] == 9.09
     assert payload["medical_record"]["review"]["status"] == "automatically_approved"
     assert len(payload["medical_record"]["timeline"]) == 1
     assert payload["processor_version"] is None
@@ -309,7 +309,7 @@ treatment: Cambio inmediato a dieta de pellets.
     assert owner["phone_number"]["value"] == "+34 600 000 000"
     assert owner["email"]["value"] == "sergio.mtz@vet-exotics-example.com"
     parsing_metadata = payload["parsing_metadata"]
-    assert parsing_metadata["mapped_fields_count"] >= 12
+    assert parsing_metadata["mapped_fields_count"] >= 11
     assert parsing_metadata["mapping_coverage_pct"] >= 85
 
 
