@@ -4,6 +4,7 @@ import path from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 
+import { REQUIRED_FIELDS, REQUIRED_TIMELINE_FIELDS, TIMELINE_UI_REQUIRED_EXCLUSIONS } from "./uiRequiredFields";
 import { medicalRecordEmptyState } from "../data/medicalRecordEmptyState";
 import { medicalRecordMockData } from "../data/medicalRecordMockData";
 
@@ -70,5 +71,24 @@ describe("medical record shared contract", () => {
     };
 
     expect(() => assertValidContract(validate, payloadWithParsingMetadata)).not.toThrow();
+  });
+
+  it("keeps UI required fields aligned with schema required keys", () => {
+    const medicalRecordSchema = schema.$defs.medicalRecordFinal?.properties ?? {};
+    const patientRequired = (medicalRecordSchema.patient?.required ?? []).map((field) => `patient.${field}`);
+    const ownerRequired = (medicalRecordSchema.owner?.required ?? []).map((field) => `owner.${field}`);
+    const expectedRequiredFields = new Set([...patientRequired, ...ownerRequired]);
+
+    expect(new Set(REQUIRED_FIELDS)).toEqual(expectedRequiredFields);
+
+    const timelineItems = medicalRecordSchema.timeline?.items ?? {};
+    const timelineRequired = timelineItems.required ?? [];
+    const timelineProperties = timelineItems.properties ?? {};
+    const expectedTimelineRequiredFields = timelineRequired.filter((field) => {
+      if (TIMELINE_UI_REQUIRED_EXCLUSIONS.has(field)) return false;
+      const fieldSchema = timelineProperties[field];
+      return fieldSchema?.type !== "array";
+    });
+    expect(new Set(REQUIRED_TIMELINE_FIELDS)).toEqual(new Set(expectedTimelineRequiredFields));
   });
 });

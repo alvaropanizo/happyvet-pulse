@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "react-bootstrap";
+import { Upload } from "lucide-react";
 
-import MaterialUploadIcon from "./icons/MaterialUploadIcon";
 import UploadDropzoneFooter from "./UploadDropzoneFooter";
 
 function UploadPanel({
@@ -126,7 +126,7 @@ function UploadPanel({
           onKeyDown={handleDropzoneBodyKeyDown}
           aria-label={`${content.primaryLabel}. ${content.caption}`}
         >
-          <MaterialUploadIcon className="hv-material-upload-icon" />
+          <Upload className="hv-material-upload-icon" size={48} strokeWidth={2.1} aria-hidden="true" />
           <h2 className="h4 mt-3 mb-2 hv-title hv-dropzone-title">
             {content.primaryLabel}
           </h2>

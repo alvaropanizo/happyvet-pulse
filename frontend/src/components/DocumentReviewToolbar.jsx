@@ -1,6 +1,6 @@
 import { Button, OverlayTrigger, Spinner, Tooltip } from "react-bootstrap";
+import { ArrowRight, Check, Trash2 } from "lucide-react";
 
-import ArrowForwardIcon from "./icons/ArrowForwardIcon";
 import { formatFileSize } from "../utils/formatFileSize";
 import { getFileExtension } from "../utils/filePreview";
 
@@ -53,16 +53,7 @@ function DocumentReviewToolbar({
               aria-label={content.scannedLabel}
             >
               <span className="hv-review-toolbar-scan-complete-label">{content.scannedLabel}</span>
-              <svg
-                className="hv-review-toolbar-scan-complete-check"
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                width="1.15em"
-                height="1.15em"
-                fill="currentColor"
-              >
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-              </svg>
+              <Check className="hv-review-toolbar-scan-complete-check" size={18} strokeWidth={2.4} aria-hidden="true" />
             </div>
           </div>
         ) : isScanning ? (
@@ -91,7 +82,7 @@ function DocumentReviewToolbar({
             <span className="hv-review-toolbar-scan-trigger">
               <Button type="button" variant="secondary" className="hv-review-toolbar-scan-btn" onClick={onScan}>
                 <span className="hv-review-toolbar-scan-btn-label">{scanButtonLabel}</span>
-                <ArrowForwardIcon className="hv-review-toolbar-scan-btn-icon" />
+                <ArrowRight className="hv-review-toolbar-scan-btn-icon" size={18} strokeWidth={2.2} aria-hidden="true" />
               </Button>
             </span>
           </OverlayTrigger>
@@ -118,7 +109,7 @@ function DocumentReviewToolbar({
           aria-label={content.removeFileAriaLabel}
         >
           <span className="hv-review-toolbar-remove-x" aria-hidden="true">
-            ×
+            <Trash2 size={16} strokeWidth={2.2} />
           </span>
         </button>
       </div>

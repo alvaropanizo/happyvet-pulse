@@ -9,7 +9,7 @@
     "parsing_metadata"
   ],
   "properties": {
-    "medical_record": { "$ref": "#/$defs/medicalRecordDraft" },
+    "medical_record": { "$ref": "#/$defs/medicalRecordFinal" },
     "parsing_metadata": {
       "type": "object",
       "additionalProperties": false,
@@ -28,6 +28,9 @@
         "extracted_char_count": { "type": "integer", "minimum": 0 },
         "meaningful_text": { "type": "boolean" },
         "integrity_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "mapping_coverage_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "mapped_fields_count": { "type": ["integer", "null"], "minimum": 0 },
+        "total_fields_count": { "type": ["integer", "null"], "minimum": 0 },
         "reason": { "type": ["string", "null"] }
       }
     },
@@ -39,7 +42,7 @@
     "timings_ms": { "type": ["number", "integer", "null"], "minimum": 0 }
   },
   "$defs": {
-    "medicalRecordDraft": {
+    "medicalRecordFinal": {
       "type": "object",
       "additionalProperties": true,
       "required": [
@@ -48,8 +51,6 @@
         "patient",
         "owner",
         "timeline",
-        "problem_list",
-        "reminders",
         "review"
       ],
       "properties": {
@@ -98,9 +99,9 @@
           "required": ["name", "species", "breed", "sex", "birth_date", "chip_id", "weight_kg"],
           "properties": {
             "name": { "$ref": "#/$defs/fieldValue" },
-            "species": { "$ref": "#/$defs/fieldValue" },
+            "species": { "$ref": "#/$defs/speciesFieldValue" },
             "breed": { "$ref": "#/$defs/fieldValue" },
-            "sex": { "$ref": "#/$defs/fieldValue" },
+            "sex": { "$ref": "#/$defs/sexFieldValue" },
             "birth_date": { "$ref": "#/$defs/fieldValue" },
             "chip_id": { "$ref": "#/$defs/fieldValue" },
             "weight_kg": { "$ref": "#/$defs/fieldValue" }
@@ -109,10 +110,13 @@
         "owner": {
           "type": "object",
           "additionalProperties": true,
-          "required": ["name", "address"],
+          "required": ["name", "surname", "phone_number", "email"],
           "properties": {
             "name": { "$ref": "#/$defs/fieldValue" },
-            "address": { "$ref": "#/$defs/fieldValue" }
+            "surname": { "$ref": "#/$defs/fieldValue" },
+            "phone_number": { "$ref": "#/$defs/fieldValue" },
+            "email": { "$ref": "#/$defs/fieldValue" },
+            "address": { "anyOf": [{ "$ref": "#/$defs/fieldValue" }, { "type": "null" }] }
           }
         },
         "timeline": {
@@ -120,9 +124,11 @@
           "items": {
             "type": "object",
             "additionalProperties": true,
-            "required": ["event_id", "event_type", "diagnoses", "treatments", "tests", "attachments"],
+            "required": ["event_id", "status", "event_type", "date", "clinic", "title"],
             "properties": {
               "event_id": { "type": "string" },
+              "status": { "type": "string", "enum": ["needs_review", "approved"] },
+              "date": { "type": ["string", "null"] },
               "event_type": {
                 "type": "string",
                 "enum": [
@@ -132,40 +138,37 @@
                   "vaccination",
                   "phone_call",
                   "hospitalization",
-                  "prescription"
+                  "prescription",
+                  "problem",
+                  "reminder"
                 ]
               },
-              "diagnoses": { "type": "array" },
-              "treatments": { "type": "array" },
-              "tests": { "type": "array" },
-              "attachments": { "type": "array" }
-            }
-          }
-        },
-        "problem_list": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "required": ["problem_id", "name", "status"],
-            "properties": {
-              "problem_id": { "type": "string" },
-              "name": { "type": "string" },
-              "status": { "type": "string", "enum": ["active", "resolved", "recurrent"] }
-            }
-          }
-        },
-        "reminders": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "required": ["reminder_id", "type", "label", "status"],
-            "properties": {
-              "reminder_id": { "type": "string" },
-              "type": { "type": "string", "enum": ["vaccination", "checkup", "lab_followup"] },
-              "label": { "type": "string" },
-              "status": { "type": "string", "enum": ["pending", "done"] }
+              "clinic": { "type": ["string", "null"] },
+              "title": { "type": ["string", "null"] },
+              "anamnesis": { "type": ["string", "null"] },
+              "assessment": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "diagnoses": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/diagnosis" }
+              },
+              "treatments": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/treatment" }
+              },
+              "tests": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/testResult" }
+              },
+              "attachments": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "source": {
+                "anyOf": [{ "$ref": "#/$defs/eventSource" }, { "type": "null" }]
+              }
             }
           }
         },
@@ -174,7 +177,7 @@
           "additionalProperties": true,
           "required": ["status", "edited_fields", "last_editor", "updated_at"],
           "properties": {
-            "status": { "type": "string", "enum": ["needs_review", "in_review", "approved"] },
+            "status": { "type": "string", "enum": ["needs_review", "in_review", "approved", "automatically_approved"] },
             "edited_fields": {
               "type": "array",
               "items": { "type": "string" }
@@ -188,11 +191,92 @@
     "fieldValue": {
       "type": "object",
       "additionalProperties": true,
-      "required": ["value", "confidence", "edited"],
+      "required": ["value", "confidence", "edited", "status"],
       "properties": {
         "value": { "type": ["string", "number", "integer", "null"] },
         "confidence": { "type": "number" },
-        "edited": { "type": "boolean" }
+        "edited": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["empty", "pending", "approved", "automatically_approved", "edited"] }
+      }
+    },
+    "speciesFieldValue": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["value", "confidence", "edited", "status"],
+      "properties": {
+        "value": { "type": ["string", "null"], "enum": ["cat", "dog", "bird", "other", null] },
+        "confidence": { "type": "number" },
+        "edited": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["empty", "pending", "approved", "automatically_approved", "edited"] }
+      }
+    },
+    "sexFieldValue": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["value", "confidence", "edited", "status"],
+      "properties": {
+        "value": { "type": ["string", "null"], "enum": ["male", "female", null] },
+        "confidence": { "type": "number" },
+        "edited": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["empty", "pending", "approved", "automatically_approved", "edited"] }
+      }
+    },
+    "diagnosis": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["text", "status"],
+      "properties": {
+        "text": { "type": "string" },
+        "status": { "type": "string", "enum": ["confirmed", "suspected", "ruled_out"] }
+      }
+    },
+    "treatment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["medication"],
+      "properties": {
+        "medication": { "type": "string" },
+        "dose": { "type": ["string", "null"] },
+        "frequency": { "type": ["string", "null"] },
+        "duration": { "type": ["string", "null"] }
+      }
+    },
+    "testResult": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["test_name", "values"],
+      "properties": {
+        "test_name": { "type": "string" },
+        "result_summary": { "type": ["string", "null"] },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": {
+              "type": ["string", "number", "integer", "null"]
+            }
+          }
+        }
+      }
+    },
+    "eventSource": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["document_id"],
+      "properties": {
+        "document_id": { "type": "string" },
+        "span": {
+          "anyOf": [{ "$ref": "#/$defs/sourceSpan" }, { "type": "null" }]
+        }
+      }
+    },
+    "sourceSpan": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "integer" },
+        "end": { "type": "integer" }
       }
     }
   }

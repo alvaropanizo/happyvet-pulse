@@ -2,6 +2,7 @@ const emptyFieldValue = {
   value: null,
   confidence: 0.0,
   edited: false,
+  status: "empty",
 };
 
 export const medicalRecordEmptyState = {
@@ -18,11 +19,12 @@ export const medicalRecordEmptyState = {
   },
   owner: {
     name: { ...emptyFieldValue },
-    address: { ...emptyFieldValue },
+    surname: { ...emptyFieldValue },
+    phone_number: { ...emptyFieldValue },
+    email: { ...emptyFieldValue },
+    address: null,
   },
   timeline: [],
-  problem_list: [],
-  reminders: [],
   review: {
     status: "needs_review",
     edited_fields: [],

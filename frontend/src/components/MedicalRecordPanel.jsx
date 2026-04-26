@@ -1,77 +1,147 @@
-import { useEffect, useState } from "react";
-import { Accordion, Badge, Card, Col, Form, ListGroup, Row } from "react-bootstrap";
+import { useEffect, useMemo, useState } from "react";
+import { Accordion, Badge, Button, Card, Col, Form, ListGroup } from "react-bootstrap";
+import {
+  Check,
+  ClipboardList,
+  Hand,
+  OctagonAlert,
+  Pencil,
+} from "lucide-react";
+import ConfirmModal from "./common/ConfirmModal";
+import { REQUIRED_FIELDS, REQUIRED_TIMELINE_FIELDS, isRequiredField } from "../contracts/uiRequiredFields";
+import { OverviewSection, OwnerSection, PatientSection, TimelineSection } from "../features/medical-record/components/MedicalRecordSections";
+import TimelineEventForm from "../features/medical-record/components/TimelineEventForm";
+import { FIELD_STATUS, getStatusMeta } from "../features/medical-record/constants/statusModel";
+import { eventTypeIcon } from "../features/medical-record/utils/timelineUtils";
+import { useSectionCollapse } from "../features/medical-record/hooks/useSectionCollapse";
+import { useMedicalRecordDraftController } from "../features/medical-record/hooks/useMedicalRecordDraftController";
+import { useTimelineSelection } from "../features/medical-record/hooks/useTimelineSelection";
+import { normalizeMedicalRecord, totalAttachments } from "../features/medical-record/utils/modelUtils";
+import {
+  getSectionStatusFromFields,
+  getSectionStatusIcon,
+} from "../features/medical-record/utils/statusAggregators";
+import {
+  buildClinicalHeader,
+  buildRequiredBreakdown,
+  buildTimelineRows,
+  computeTimelineSectionStatus,
+} from "../features/medical-record/selectors/medicalRecordSelectors";
 
 function displayValue(fieldValue) {
   const value = fieldValue?.value;
   return value === null || value === undefined || value === "" ? "" : String(value);
 }
 
-function totalAttachments(sourceDocuments) {
-  return (sourceDocuments ?? []).reduce(
-    (accumulator, sourceDocument) => accumulator + (sourceDocument.attachments?.length ?? 0),
-    0,
+
+function FieldStatusIndicator({ status, onApprove }) {
+  if (status === FIELD_STATUS.EMPTY) {
+    return null;
+  }
+  if (status === FIELD_STATUS.AUTO_APPROVED) {
+    return null;
+  }
+  if (status === FIELD_STATUS.APPROVED) {
+    return (
+      <span className="hv-field-status-right hv-field-status-right--approved" title="You have manually confirmed this information">
+        <span className="hv-field-status-circle"><Check size={14} strokeWidth={2.4} /></span>
+      </span>
+    );
+  }
+  if (status === FIELD_STATUS.EDITED) {
+    return (
+      <span className="hv-field-status-right hv-field-status-right--edited" title="This field was manually edited">
+        <span className="hv-field-status-circle"><Check size={14} strokeWidth={2.4} /></span>
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="hv-field-status-right hv-field-status-right--pending"
+      onClick={onApprove}
+      title="We have extracted some information from the document but you must review it cause it can contain not related information"
+      aria-label="Approve extracted field value"
+    >
+      <span className="hv-field-status-circle"><Check size={14} strokeWidth={2.4} /></span>
+    </button>
   );
 }
 
-function normalizeFieldValue(fieldValue) {
-  return {
-    value: fieldValue?.value ?? "",
-    confidence: fieldValue?.confidence ?? 0,
-    edited: fieldValue?.edited ?? false,
-  };
-}
-
-function normalizeMedicalRecord(medicalRecord) {
-  return {
-    record_id: medicalRecord?.record_id ?? "-",
-    review: {
-      status: medicalRecord?.review?.status ?? "needs_review",
-    },
-    patient: {
-      name: normalizeFieldValue(medicalRecord?.patient?.name),
-      species: normalizeFieldValue(medicalRecord?.patient?.species),
-      breed: normalizeFieldValue(medicalRecord?.patient?.breed),
-      sex: normalizeFieldValue(medicalRecord?.patient?.sex),
-      birth_date: normalizeFieldValue(medicalRecord?.patient?.birth_date),
-      chip_id: normalizeFieldValue(medicalRecord?.patient?.chip_id),
-      weight_kg: normalizeFieldValue(medicalRecord?.patient?.weight_kg),
-    },
-    owner: {
-      name: normalizeFieldValue(medicalRecord?.owner?.name),
-      address: normalizeFieldValue(medicalRecord?.owner?.address),
-    },
-    timeline: (medicalRecord?.timeline ?? []).map((event, index) => ({
-      event_id: event?.event_id ?? `event_${index + 1}`,
-      title: event?.title ?? "",
-      date: event?.date ?? "",
-      clinic: event?.clinic ?? "",
-    })),
-    problem_list: (medicalRecord?.problem_list ?? []).map((problem, index) => ({
-      problem_id: problem?.problem_id ?? `problem_${index + 1}`,
-      name: problem?.name ?? "",
-      status: problem?.status ?? "active",
-    })),
-    reminders: (medicalRecord?.reminders ?? []).map((reminder, index) => ({
-      reminder_id: reminder?.reminder_id ?? `reminder_${index + 1}`,
-      label: reminder?.label ?? "",
-      status: reminder?.status ?? "pending",
-      due_date: reminder?.due_date ?? "",
-    })),
-    source_documents: (medicalRecord?.source_documents ?? []).map((sourceDocument, index) => ({
-      document_id: sourceDocument?.document_id ?? `doc_${index + 1}`,
-      filename: sourceDocument?.filename ?? "",
-      source_type: sourceDocument?.source_type ?? "",
-      attachments: sourceDocument?.attachments ?? [],
-      raw_text: sourceDocument?.raw_text ?? "",
-    })),
-  };
-}
-
-function EditableFieldValue({ label, fieldValue, type = "text", onChange }) {
+function EditableFieldValue({
+  label,
+  fieldValue,
+  type = "text",
+  onChange,
+  multiline = false,
+  rows = 2,
+  md = 6,
+  fieldPath,
+  isRequired = false,
+  onApprove,
+  resizable = false,
+  options,
+}) {
+  const inputType = multiline ? undefined : type;
+  const currentValue = displayValue(fieldValue);
+  const isEmpty = currentValue.trim() === "";
+  const showMissingRequired = isRequired && isEmpty;
+  const showStatus = !showMissingRequired && !["empty"].includes(fieldValue?.status ?? "empty");
+  const statusMeta = getStatusMeta(fieldValue?.status ?? "pending");
+  const requiredFieldLabel = fieldPath?.split(".").pop() ?? fieldPath;
   return (
-    <Form.Group as={Col}>
-      <Form.Label className="mb-1">{label}</Form.Label>
-      <Form.Control type={type} value={displayValue(fieldValue)} onChange={(event) => onChange(event.target.value)} />
+    <Form.Group as={Col} md={md}>
+      <Form.Label className="mb-1 hv-form-field-label">
+        {label}
+        {isRequired ? " *" : ""}
+      </Form.Label>
+      <div className="hv-field-input-wrap">
+        {Array.isArray(options) ? (
+          <Form.Select
+            value={currentValue}
+            isInvalid={showMissingRequired}
+            className="hv-field-input-with-action"
+            onChange={(event) => onChange(event.target.value)}
+          >
+            <option value="">Select...</option>
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Form.Select>
+        ) : (
+          <Form.Control
+            as={multiline ? "textarea" : undefined}
+            rows={multiline ? rows : undefined}
+            type={inputType}
+            value={currentValue}
+            isInvalid={showMissingRequired}
+            className={`hv-field-input-with-action ${
+              multiline ? (resizable ? "hv-textarea-resizable" : "hv-textarea-fixed") : ""
+            }`}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
+        <FieldStatusIndicator status={fieldValue?.status} onApprove={onApprove} />
+      </div>
+      <div className="hv-field-meta-row">
+        <small className={`hv-field-required-note${showMissingRequired ? " is-visible" : ""}`}>
+          {showMissingRequired ? `Required field: ${requiredFieldLabel}` : ""}
+        </small>
+        {showStatus ? (
+          <button
+            type="button"
+            className={statusMeta.className}
+            title={statusMeta.title}
+            onClick={fieldValue?.status === "pending" ? onApprove : undefined}
+            disabled={fieldValue?.status !== "pending"}
+          >
+            <span className="hv-field-status-text-icon"><statusMeta.Icon size={14} strokeWidth={2.2} /></span>
+            <span>{statusMeta.text}</span>
+          </button>
+        ) : null}
+      </div>
     </Form.Group>
   );
 }
@@ -85,335 +155,273 @@ function SummaryMetric({ label, value }) {
   );
 }
 
+function SectionHeader({ title, Icon, sectionStatus, showWarning = true, sparkling = false }) {
+  const hasWarning = sectionStatus === "needs_review";
+  return (
+    <span className={`hv-section-header hv-section-header--${sectionStatus}`}>
+      <span className="hv-section-header-left">
+        <span className={`hv-section-header-icon-wrap${sparkling ? " hv-section-header-icon-wrap--spark" : ""}`}>
+          <Icon size={18} strokeWidth={2.1} />
+        </span>
+        <span className="hv-section-header-title">{title}</span>
+      </span>
+      {showWarning && hasWarning ? (
+        <span className="hv-section-header-warning" title="This section contains extracted fields that may require review">
+          <OctagonAlert size={16} strokeWidth={2.2} />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function EmptySectionValue({ message = "-" }) {
   return <p className="mb-0 hv-info-text">{message}</p>;
 }
 
-function EditableTimelineItem({ event, content, onChange }) {
-  return (
-    <ListGroup.Item>
-      <Row className="g-2">
-        <Form.Group as={Col} md={6}>
-          <Form.Label className="mb-1">Title</Form.Label>
-          <Form.Control type="text" value={event.title} onChange={(e) => onChange("title", e.target.value)} />
-        </Form.Group>
-        <Form.Group as={Col} md={3}>
-          <Form.Label className="mb-1">Date</Form.Label>
-          <Form.Control type="date" value={event.date} onChange={(e) => onChange("date", e.target.value)} />
-        </Form.Group>
-        <Form.Group as={Col} md={3}>
-          <Form.Label className="mb-1">{content.clinicLabel}</Form.Label>
-          <Form.Control type="text" value={event.clinic} onChange={(e) => onChange("clinic", e.target.value)} />
-        </Form.Group>
-      </Row>
-    </ListGroup.Item>
-  );
-}
-
-function EditableProblemItem({ problem, onChange }) {
-  return (
-    <ListGroup.Item>
-      <Row className="g-2 align-items-end">
-        <Form.Group as={Col} md={8}>
-          <Form.Label className="mb-1">Problem</Form.Label>
-          <Form.Control type="text" value={problem.name} onChange={(e) => onChange("name", e.target.value)} />
-        </Form.Group>
-        <Form.Group as={Col} md={4}>
-          <Form.Label className="mb-1">Status</Form.Label>
-          <Form.Select value={problem.status} onChange={(e) => onChange("status", e.target.value)}>
-            <option value="active">active</option>
-            <option value="resolved">resolved</option>
-            <option value="recurrent">recurrent</option>
-          </Form.Select>
-        </Form.Group>
-      </Row>
-    </ListGroup.Item>
-  );
-}
-
-function EditableReminderItem({ reminder, content, onChange }) {
-  return (
-    <ListGroup.Item>
-      <Row className="g-2 align-items-end">
-        <Form.Group as={Col} md={5}>
-          <Form.Label className="mb-1">Label</Form.Label>
-          <Form.Control type="text" value={reminder.label} onChange={(e) => onChange("label", e.target.value)} />
-        </Form.Group>
-        <Form.Group as={Col} md={3}>
-          <Form.Label className="mb-1">{content.dueDateLabel}</Form.Label>
-          <Form.Control type="date" value={reminder.due_date} onChange={(e) => onChange("due_date", e.target.value)} />
-        </Form.Group>
-        <Form.Group as={Col} md={4}>
-          <Form.Label className="mb-1">Status</Form.Label>
-          <Form.Select value={reminder.status} onChange={(e) => onChange("status", e.target.value)}>
-            <option value="pending">pending</option>
-            <option value="done">done</option>
-          </Form.Select>
-        </Form.Group>
-      </Row>
-    </ListGroup.Item>
-  );
-}
-
-function getRawExtractedText(sourceDocuments) {
-  return sourceDocuments?.[0]?.raw_text ?? "";
-}
-
-function ensureSourceDocument(sourceDocuments) {
-  if ((sourceDocuments ?? []).length > 0) return [...sourceDocuments];
-  return [{ document_id: "doc_1", filename: "", source_type: "", attachments: [], raw_text: "" }];
-}
-
 function MedicalRecordPanel({ medicalRecord, content }) {
-  const [draft, setDraft] = useState(() => normalizeMedicalRecord(medicalRecord));
+  const APPROVED_FIELD_STATUSES = new Set(["approved", "edited", "automatically_approved"]);
+  const EDIT_COLLAPSE_IDLE_MS = 5000;
+  const {
+    expandedEventIds,
+    setExpandedEventIds,
+    selectedTimelineEventIds,
+    setSelectedTimelineEventIds,
+    timelineBulkMenuOpen,
+    setTimelineBulkMenuOpen,
+    timelineBulkMenuRef,
+    toggleTimelineEventExpanded,
+    toggleTimelineEventSelected,
+    selectAllTimelineEvents,
+    clearTimelineEventSelection,
+    scheduleTimelineEventCollapse,
+    resetTimelineSelection,
+  } = useTimelineSelection(EDIT_COLLAPSE_IDLE_MS);
+  const {
+    draft,
+    newTimelineEventId,
+    pendingDeleteTimelineIndex,
+    setPendingDeleteTimelineIndex,
+    pendingDeleteSelectedTimelineIds,
+    setPendingDeleteSelectedTimelineIds,
+    getTimelineFieldStatus,
+    getTimelineEventStatus,
+    updateFieldValue,
+    approveField,
+    updateTimelineField,
+    addTimelineAttachmentPaths,
+    addTimelineEvent,
+    requestRemoveTimelineEvent,
+    requestRemoveSelectedTimelineEvents,
+    confirmRemoveTimelineEvent,
+    approveTimelineField,
+    resetDraftState,
+  } = useMedicalRecordDraftController({
+    medicalRecord,
+    requiredTimelineFields: REQUIRED_TIMELINE_FIELDS,
+    approvedFieldStatuses: APPROVED_FIELD_STATUSES,
+    scheduleTimelineEventCollapse,
+    setExpandedEventIds,
+    setSelectedTimelineEventIds,
+  });
+
+  const patientSectionStatus = getSectionStatusFromFields([
+    draft.patient.name,
+    draft.patient.species,
+    draft.patient.breed,
+    draft.patient.sex,
+    draft.patient.birth_date,
+    draft.patient.chip_id,
+    draft.patient.weight_kg,
+  ]);
+  const ownerSectionStatus = getSectionStatusFromFields([
+    draft.owner.name,
+    draft.owner.surname,
+    draft.owner.phone_number,
+    draft.owner.email,
+  ]);
+  const timelineSectionStatus = computeTimelineSectionStatus(draft.timeline, getTimelineEventStatus);
+  const {
+    activeSectionKeys,
+    sparklingSections,
+    scheduleSectionEditCollapse,
+    toggleAccordionSection,
+    resetSectionState,
+  } = useSectionCollapse({
+    medicalRecord,
+    patientSectionStatus,
+    ownerSectionStatus,
+    timelineSectionStatus,
+    editCollapseIdleMs: EDIT_COLLAPSE_IDLE_MS,
+  });
+
+  const updateFieldValueWithSectionCollapse = (section, field, value) => {
+    updateFieldValue(section, field, value);
+    if (typeof value === "string" && value.length > 0) {
+      scheduleSectionEditCollapse(section);
+    }
+  };
 
   useEffect(() => {
-    setDraft(normalizeMedicalRecord(medicalRecord));
+    resetDraftState();
+    resetTimelineSelection();
+    resetSectionState();
   }, [medicalRecord]);
 
-  const recentTimeline = draft.timeline.slice(0, 3);
-  const rawExtractedText = getRawExtractedText(draft.source_documents);
+  const patientSectionIcon = getSectionStatusIcon("patient", patientSectionStatus, draft.patient.species?.value);
+  const ownerSectionIcon = getSectionStatusIcon("owner", ownerSectionStatus, draft.patient.species?.value);
+  const timelineSectionIcon = getSectionStatusIcon("timeline", timelineSectionStatus, draft.patient.species?.value);
+  const { clinicalHeaderStatus, clinicalHeaderTitle, clinicalHeaderPills } = buildClinicalHeader(draft, timelineSectionStatus);
+  const clinicalHeaderIcon = getSectionStatusIcon("timeline", clinicalHeaderStatus, draft.patient.species?.value);
+  const ClinicalHeaderIcon = clinicalHeaderIcon;
+  const {
+    patientRequiredStatuses,
+    ownerRequiredStatuses,
+    timelineRequiredStatuses,
+    patientReviewedCount,
+    ownerReviewedCount,
+    historyReviewedCount,
+    totalAutoApprovedCount,
+    totalManualApprovedCount,
+    totalNeedsReviewCount,
+    totalRequiredCount,
+  } = buildRequiredBreakdown(draft, getTimelineFieldStatus);
 
-  const updateFieldValue = (section, field, value) => {
-    setDraft((previous) => ({
-      ...previous,
-      [section]: {
-        ...previous[section],
-        [field]: {
-          ...previous[section][field],
-          value,
-          edited: true,
-        },
-      },
-    }));
-  };
-
-  const updateTimelineField = (index, field, value) => {
-    setDraft((previous) => ({
-      ...previous,
-      timeline: previous.timeline.map((event, eventIndex) =>
-        eventIndex === index ? { ...event, [field]: value } : event,
-      ),
-    }));
-  };
-
-  const updateProblemField = (index, field, value) => {
-    setDraft((previous) => ({
-      ...previous,
-      problem_list: previous.problem_list.map((problem, problemIndex) =>
-        problemIndex === index ? { ...problem, [field]: value } : problem,
-      ),
-    }));
-  };
-
-  const updateReminderField = (index, field, value) => {
-    setDraft((previous) => ({
-      ...previous,
-      reminders: previous.reminders.map((reminder, reminderIndex) =>
-        reminderIndex === index ? { ...reminder, [field]: value } : reminder,
-      ),
-    }));
-  };
-
-  const updateRawText = (value) => {
-    setDraft((previous) => {
-      const sourceDocuments = ensureSourceDocument(previous.source_documents);
-      sourceDocuments[0] = { ...sourceDocuments[0], raw_text: value };
-      return { ...previous, source_documents: sourceDocuments };
+  useEffect(() => {
+    setExpandedEventIds((previous) => {
+      const next = previous.filter((eventId) => {
+        const event = draft.timeline.find((entry) => entry.event_id === eventId);
+        if (!event) return false;
+        const status = getTimelineEventStatus(event);
+        return status !== "approved";
+      });
+      if (next.length === previous.length) return previous;
+      return next;
     });
-  };
+  }, [draft.timeline]);
+
+  const timelineRows = useMemo(() => buildTimelineRows(draft.timeline), [draft.timeline]);
 
   return (
     <Card className="hv-card hv-card-spaced">
       <Card.Body>
-        <h2 className="h6 hv-title">
-          {content.title}
-        </h2>
+        <div className={`hv-clinical-header hv-clinical-header--${clinicalHeaderStatus}`}>
+          <div className="hv-clinical-header-main">
+            <span className={`hv-section-header-icon-wrap hv-clinical-header-icon-wrap`}>
+              <ClinicalHeaderIcon size={28} strokeWidth={2.1} />
+            </span>
+            <div className="hv-clinical-header-content">
+              <h3 className="hv-clinical-header-title">{clinicalHeaderTitle}</h3>
+              {clinicalHeaderPills.length > 0 ? (
+                <div className="hv-clinical-header-pills">
+                  {clinicalHeaderPills.map((pill, index) => (
+                    <span key={`${pill}-${index}`} className="hv-clinical-header-pill">{pill}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          {clinicalHeaderStatus === "needs_review" ? (
+            <span className="hv-section-header-warning" title="This section contains extracted fields that may require review">
+              <OctagonAlert size={16} strokeWidth={2.2} />
+            </span>
+          ) : null}
+        </div>
 
-        <Form className="mt-3">
-          <Row className="g-3 mb-3">
-            <Form.Group as={Col} md={7}>
-              <Form.Label className="mb-1">{content.recordIdLabel}</Form.Label>
-              <Form.Control
-                type="text"
-                value={draft.record_id}
-                onChange={(event) => setDraft((previous) => ({ ...previous, record_id: event.target.value }))}
-              />
-            </Form.Group>
-            <Form.Group as={Col} md={5}>
-              <Form.Label className="mb-1">{content.reviewStatusLabel}</Form.Label>
-              <Form.Select
-                value={draft.review.status}
-                aria-label={content.reviewStatusLabel}
-                onChange={(event) =>
-                  setDraft((previous) => ({
-                    ...previous,
-                    review: { ...previous.review, status: event.target.value },
-                  }))
-                }
-              >
-                <option value="needs_review">needs_review</option>
-                <option value="in_review">in_review</option>
-                <option value="approved">approved</option>
-              </Form.Select>
-            </Form.Group>
-          </Row>
+        <Form className="mt-3 hv-medical-record-form">
 
-          <Accordion defaultActiveKey={["patient", "owner", "summary"]} alwaysOpen>
-            <Accordion.Item eventKey="patient">
-              <Accordion.Header>{content.patientSectionTitle}</Accordion.Header>
-              <Accordion.Body>
-                <Row className="g-3">
-                  <EditableFieldValue
-                    label={content.patientNameLabel}
-                    fieldValue={draft.patient.name}
-                    onChange={(value) => updateFieldValue("patient", "name", value)}
-                  />
-                  <EditableFieldValue
-                    label={content.speciesLabel}
-                    fieldValue={draft.patient.species}
-                    onChange={(value) => updateFieldValue("patient", "species", value)}
-                  />
-                  <EditableFieldValue
-                    label={content.breedLabel}
-                    fieldValue={draft.patient.breed}
-                    onChange={(value) => updateFieldValue("patient", "breed", value)}
-                  />
-                  <EditableFieldValue
-                    label={content.sexLabel}
-                    fieldValue={draft.patient.sex}
-                    onChange={(value) => updateFieldValue("patient", "sex", value)}
-                  />
-                  <EditableFieldValue
-                    label={content.chipLabel}
-                    fieldValue={draft.patient.chip_id}
-                    onChange={(value) => updateFieldValue("patient", "chip_id", value)}
-                  />
-                  <EditableFieldValue
-                    label="Birth date:"
-                    fieldValue={draft.patient.birth_date}
-                    type="date"
-                    onChange={(value) => updateFieldValue("patient", "birth_date", value)}
-                  />
-                  <EditableFieldValue
-                    label="Weight (kg):"
-                    fieldValue={draft.patient.weight_kg}
-                    type="number"
-                    onChange={(value) => updateFieldValue("patient", "weight_kg", value)}
-                  />
-                </Row>
-              </Accordion.Body>
-            </Accordion.Item>
+          <Accordion activeKey={activeSectionKeys} onSelect={toggleAccordionSection} alwaysOpen>
+            <PatientSection
+              content={content}
+              draft={draft}
+              patientSectionStatus={patientSectionStatus}
+              patientSectionIcon={patientSectionIcon}
+              sparklingSections={sparklingSections}
+              SectionHeaderComponent={SectionHeader}
+              EditableFieldComponent={EditableFieldValue}
+              approveField={approveField}
+              updateFieldValue={updateFieldValueWithSectionCollapse}
+            />
 
-            <Accordion.Item eventKey="owner">
-              <Accordion.Header>{content.ownerSectionTitle}</Accordion.Header>
-              <Accordion.Body>
-                <Row className="g-3">
-                  <EditableFieldValue
-                    label={content.ownerNameLabel}
-                    fieldValue={draft.owner.name}
-                    onChange={(value) => updateFieldValue("owner", "name", value)}
-                  />
-                  <EditableFieldValue
-                    label={content.ownerAddressLabel}
-                    fieldValue={draft.owner.address}
-                    onChange={(value) => updateFieldValue("owner", "address", value)}
-                  />
-                </Row>
-              </Accordion.Body>
-            </Accordion.Item>
+            <OwnerSection
+              content={content}
+              draft={draft}
+              ownerSectionStatus={ownerSectionStatus}
+              ownerSectionIcon={ownerSectionIcon}
+              sparklingSections={sparklingSections}
+              SectionHeaderComponent={SectionHeader}
+              EditableFieldComponent={EditableFieldValue}
+              approveField={approveField}
+              updateFieldValue={updateFieldValueWithSectionCollapse}
+            />
 
-            <Accordion.Item eventKey="summary">
-              <Accordion.Header>{content.summarySectionTitle}</Accordion.Header>
-              <Accordion.Body>
-                <ListGroup variant="flush">
-                  <SummaryMetric label={content.timelineCountLabel} value={draft.timeline.length} />
-                  <SummaryMetric label={content.problemsCountLabel} value={draft.problem_list.length} />
-                  <SummaryMetric label={content.remindersCountLabel} value={draft.reminders.length} />
-                  <SummaryMetric label={content.sourceDocsCountLabel} value={draft.source_documents.length} />
-                  <SummaryMetric
-                    label={content.attachmentsCountLabel}
-                    value={totalAttachments(draft.source_documents)}
-                  />
-                </ListGroup>
-              </Accordion.Body>
-            </Accordion.Item>
+            <TimelineSection
+              content={content}
+              draft={draft}
+              timelineSectionStatus={timelineSectionStatus}
+              timelineSectionIcon={timelineSectionIcon}
+              sparklingSections={sparklingSections}
+              SectionHeaderComponent={SectionHeader}
+              TimelineEventFormComponent={TimelineEventForm}
+              EditableFieldComponent={EditableFieldValue}
+              timelineRows={timelineRows}
+              expandedEventIds={expandedEventIds}
+              selectedTimelineEventIds={selectedTimelineEventIds}
+              timelineBulkMenuOpen={timelineBulkMenuOpen}
+              timelineBulkMenuRef={timelineBulkMenuRef}
+              setTimelineBulkMenuOpen={setTimelineBulkMenuOpen}
+              addTimelineEvent={addTimelineEvent}
+              requestRemoveSelectedTimelineEvents={() => requestRemoveSelectedTimelineEvents(selectedTimelineEventIds)}
+              selectAllTimelineEvents={() => selectAllTimelineEvents(draft.timeline)}
+              clearTimelineEventSelection={clearTimelineEventSelection}
+              eventTypeIcon={eventTypeIcon}
+              getTimelineEventStatus={getTimelineEventStatus}
+              toggleTimelineEventExpanded={toggleTimelineEventExpanded}
+              requestRemoveTimelineEvent={requestRemoveTimelineEvent}
+              toggleTimelineEventSelected={toggleTimelineEventSelected}
+              updateTimelineField={updateTimelineField}
+              newTimelineEventId={newTimelineEventId}
+              addTimelineAttachmentPaths={addTimelineAttachmentPaths}
+              approveTimelineField={approveTimelineField}
+              getTimelineFieldStatus={getTimelineFieldStatus}
+            />
 
-            <Accordion.Item eventKey="timeline">
-              <Accordion.Header>{content.recentTimelineTitle}</Accordion.Header>
-              <Accordion.Body>
-                {recentTimeline.length === 0 ? (
-                  <EmptySectionValue />
-                ) : (
-                  <ListGroup>
-                    {recentTimeline.map((event, index) => (
-                      <EditableTimelineItem
-                        key={event.event_id}
-                        event={event}
-                        content={content}
-                        onChange={(field, value) => updateTimelineField(index, field, value)}
-                      />
-                    ))}
-                  </ListGroup>
-                )}
-              </Accordion.Body>
-            </Accordion.Item>
-
-            <Accordion.Item eventKey="problems">
-              <Accordion.Header>{content.problemListTitle}</Accordion.Header>
-              <Accordion.Body>
-                {draft.problem_list.length === 0 ? (
-                  <EmptySectionValue />
-                ) : (
-                  <ListGroup>
-                    {draft.problem_list.map((problem, index) => (
-                      <EditableProblemItem
-                        key={problem.problem_id}
-                        problem={problem}
-                        onChange={(field, value) => updateProblemField(index, field, value)}
-                      />
-                    ))}
-                  </ListGroup>
-                )}
-              </Accordion.Body>
-            </Accordion.Item>
-
-            <Accordion.Item eventKey="reminders">
-              <Accordion.Header>{content.remindersTitle}</Accordion.Header>
-              <Accordion.Body>
-                {draft.reminders.length === 0 ? (
-                  <EmptySectionValue />
-                ) : (
-                  <ListGroup>
-                    {draft.reminders.map((reminder, index) => (
-                      <EditableReminderItem
-                        key={reminder.reminder_id}
-                        reminder={reminder}
-                        content={content}
-                        onChange={(field, value) => updateReminderField(index, field, value)}
-                      />
-                    ))}
-                  </ListGroup>
-                )}
-              </Accordion.Body>
-            </Accordion.Item>
+            <OverviewSection
+              content={content}
+              draft={draft}
+              SummaryMetricComponent={SummaryMetric}
+              SectionHeaderComponent={SectionHeader}
+              overviewIcon={ClipboardList}
+              patientReviewedCount={patientReviewedCount}
+              patientRequiredTotal={patientRequiredStatuses.length}
+              ownerReviewedCount={ownerReviewedCount}
+              ownerRequiredTotal={ownerRequiredStatuses.length}
+              historyReviewedCount={historyReviewedCount}
+              historyRequiredTotal={timelineRequiredStatuses.length}
+              totalAttachments={totalAttachments}
+              totalAutoApprovedCount={totalAutoApprovedCount}
+              totalManualApprovedCount={totalManualApprovedCount}
+              totalNeedsReviewCount={totalNeedsReviewCount}
+              totalRequiredCount={totalRequiredCount}
+            />
           </Accordion>
         </Form>
 
-        <details className="mt-3">
-          <summary className="hv-title hv-summary">
-            {content.rawExtractedTextTitle}
-          </summary>
-          <Form.Group className="mt-2">
-            <Form.Control
-              as="textarea"
-              rows={8}
-              value={rawExtractedText}
-              onChange={(event) => updateRawText(event.target.value)}
-              placeholder={content.rawExtractedTextEmpty}
-            />
-          </Form.Group>
-        </details>
+        <ConfirmModal
+          show={pendingDeleteTimelineIndex !== null || pendingDeleteSelectedTimelineIds.length > 0}
+          onHide={() => {
+            setPendingDeleteTimelineIndex(null);
+            setPendingDeleteSelectedTimelineIds([]);
+          }}
+          title={pendingDeleteSelectedTimelineIds.length > 0 ? "Remove selected timeline events?" : "Remove timeline event?"}
+          body={
+            pendingDeleteSelectedTimelineIds.length > 0
+              ? `You're going to remove ${pendingDeleteSelectedTimelineIds.length} events from the list. Are you sure?`
+              : "This will permanently remove the selected clinical history event."
+          }
+          cancelLabel="Cancel"
+          confirmLabel="Remove"
+          onConfirm={confirmRemoveTimelineEvent}
+        />
       </Card.Body>
     </Card>
   );

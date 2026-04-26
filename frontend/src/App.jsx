@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Button, Card, Modal } from "react-bootstrap";
+import { Card } from "react-bootstrap";
 
+import ConfirmModal from "./components/common/ConfirmModal";
 import DocumentPreview from "./components/DocumentPreview";
 import DocumentReviewRightPanel from "./components/DocumentReviewRightPanel";
 import DocumentReviewSplitLayout from "./components/DocumentReviewSplitLayout";
@@ -117,33 +118,21 @@ function App() {
               layoutAriaLabel={validatedUiContent.documentReviewLayout.layoutAriaLabel}
               leftPane={reviewLeftPane}
               rightPane={reviewRightPane}
+              scanCompleted={scanCompleted}
             />
           ) : null}
         </div>
       </AppShell>
 
-      <Modal show={showRemoveFileConfirm} onHide={handleCloseRemoveModal} centered>
-        <Modal.Header closeButton className="hv-modal-header">
-          <Modal.Title className="hv-modal-title">
-            {validatedUiContent.documentReviewToolbar.confirmRemoveTitle}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="hv-modal-body">
-          {validatedUiContent.documentReviewToolbar.confirmRemoveMessage}
-        </Modal.Body>
-        <Modal.Footer className="hv-modal-footer">
-          <Button
-            variant="secondary"
-            className="hv-modal-btn-min"
-            onClick={handleCloseRemoveModal}
-          >
-            {validatedUiContent.documentReviewToolbar.confirmRemoveNo}
-          </Button>
-          <Button className="hv-primary-btn hv-modal-btn-min" onClick={handleConfirmRemoveFile}>
-            {validatedUiContent.documentReviewToolbar.confirmRemoveYes}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <ConfirmModal
+        show={showRemoveFileConfirm}
+        onHide={handleCloseRemoveModal}
+        title={validatedUiContent.documentReviewToolbar.confirmRemoveTitle}
+        body={validatedUiContent.documentReviewToolbar.confirmRemoveMessage}
+        cancelLabel={validatedUiContent.documentReviewToolbar.confirmRemoveNo}
+        confirmLabel={validatedUiContent.documentReviewToolbar.confirmRemoveYes}
+        onConfirm={handleConfirmRemoveFile}
+      />
     </>
   );
 }
