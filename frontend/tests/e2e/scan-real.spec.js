@@ -201,7 +201,10 @@ for (const fixtureFile of FIXTURE_FILES) {
     await page.getByRole("button", { name: "Scan" }).click();
 
     const scanError = page.getByText("Scan error:", { exact: false });
-    const structuredHeading = page.getByRole("heading", { name: "Medical record draft (read-only)" });
+    const structuredHeading = page
+      .getByRole("heading")
+      .filter({ hasText: /Draft Clinical History|Clinical History/i })
+      .first();
 
     const shouldRequireSuccess = fixtureFile.ext === "txt";
 
