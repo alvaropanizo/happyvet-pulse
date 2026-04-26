@@ -11,9 +11,12 @@ function ReviewPane({ title, children }) {
   );
 }
 
-function DocumentReviewSplitLayout({ leftPaneTitle, leftPane, rightPane, layoutAriaLabel }) {
+function DocumentReviewSplitLayout({ leftPaneTitle, leftPane, rightPane, layoutAriaLabel, scanCompleted }) {
   return (
-    <section className="hv-document-review-split" aria-label={layoutAriaLabel}>
+    <section
+      className={`hv-document-review-split${scanCompleted ? " hv-document-review-split--scanned" : ""}`}
+      aria-label={layoutAriaLabel}
+    >
       <ReviewPane title={leftPaneTitle}>{leftPane}</ReviewPane>
       <ReviewPane>{rightPane}</ReviewPane>
     </section>

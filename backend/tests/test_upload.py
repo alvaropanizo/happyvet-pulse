@@ -100,14 +100,24 @@ def test_scan_document_returns_mapped_medical_record_and_parsing_metadata() -> N
     assert payload["parsing_metadata"]["extraction_method"] == "fast_path"
     assert payload["parsing_metadata"]["latency_ms"] == 42
     assert payload["parsing_metadata"]["meaningful_text"] is True
-    assert payload["medical_record"]["review"]["status"] == "needs_review"
+    assert payload["parsing_metadata"]["total_fields_count"] == 12
+    assert payload["parsing_metadata"]["mapped_fields_count"] == 1
+    assert payload["parsing_metadata"]["mapping_coverage_pct"] == 8.33
+    assert payload["parsing_metadata"]["confident_total_fields_count"] == 11
+    assert payload["parsing_metadata"]["confident_fields_count"] == 1
+    assert payload["parsing_metadata"]["confident_coverage_pct"] == 9.09
+    assert payload["medical_record"]["review"]["status"] == "automatically_approved"
+    assert len(payload["medical_record"]["timeline"]) == 0
     assert payload["processor_version"] is None
     assert payload["warnings"] == []
     assert payload["timings_ms"] is None
 
 
 def test_scan_document_prefills_basic_patient_fields_from_raw_text() -> None:
-    markdown = """MASCOTA: KAI
+    markdown = """MASCOTA: NACIMIENTO
+PACIENTE: KAI
+FECHA DE NACIMIENTO: 01/02/2019
+RAZA: yorkshire
 SEXO: Macho
 PESO: 12.4
 CHIP: 00023152359
@@ -126,10 +136,532 @@ CANINO
     assert response.status_code == 200
     patient = response.json()["medical_record"]["patient"]
     assert patient["name"]["value"] == "KAI"
-    assert patient["sex"]["value"].lower() == "macho"
+    assert patient["name"]["value"] != "NACIMIENTO"
+    assert patient["birth_date"]["value"] == "2019-02-01"
+    assert patient["breed"]["value"] == "yorkshire"
+    assert patient["sex"]["value"] == "male"
     assert patient["chip_id"]["value"] == "00023152359"
     assert patient["weight_kg"]["value"] == "12.4"
-    assert patient["species"]["value"].lower() == "canino"
+    assert patient["species"]["value"] == "dog"
+    parsing_metadata = response.json()["parsing_metadata"]
+    assert parsing_metadata["total_fields_count"] == 12
+    assert parsing_metadata["mapped_fields_count"] == 8
+    assert parsing_metadata["mapping_coverage_pct"] == 66.67
+
+
+def test_scan_document_does_not_inject_inline_owner_label_into_patient_name() -> None:
+    markdown = """name=Mochi" and "owner_name=Carla Perez
+species=cat
+owner_email=carla@example.com
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    patient_name = payload["medical_record"]["patient"]["name"]["value"]
+    owner_name = payload["medical_record"]["owner"]["name"]["value"]
+    assert patient_name == "Mochi"
+    assert "owner_name" not in patient_name.lower()
+    assert owner_name in {"Carla Perez", "Carla"}
+
+
+def test_scan_document_does_not_inject_certificate_text_into_owner_surname() -> None:
+    markdown = """owner_name: Carla
+owner_surname: Vance" is authorized for the HappyVet-Pulse
+pet_name: Mochi
+species: cat
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    owner_surname = payload["medical_record"]["owner"]["surname"]["value"]
+    assert owner_surname == "Vance"
+    assert "authorized" not in owner_surname.lower()
+    assert "happyvet-pulse" not in owner_surname.lower()
+
+
+def test_scan_document_extracts_timeline_events_from_raw_text() -> None:
+    markdown = """15/03/2026 Consulta general
+Diagnostico: Dermatitis leve
+Tratamiento: Champu medicado semanal
+Prueba: Hemograma de control
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("record.txt", markdown.encode("utf-8"), "text/plain")},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    timeline = payload["medical_record"]["timeline"]
+    assert len(timeline) >= 1
+    assert timeline[0]["date"] == "2026-03-15"
+    assert timeline[0]["diagnoses"][0]["text"] == "Dermatitis leve"
+    assert timeline[0]["treatments"][0]["medication"] == "Champu medicado semanal"
+    assert timeline[0]["tests"][0]["test_name"] == "Hemograma de control"
+    assert any(event["event_type"] == "problem" for event in timeline)
+
+
+def test_scan_document_derives_problem_events_when_mentioned_multiple_times() -> None:
+    markdown = """10/01/2024 Consulta
+Diagnostico: Otitis externa
+02/02/2024 Revision
+Diagnostico: Otitis externa
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("record.txt", markdown.encode("utf-8"), "text/plain")},
+        )
+
+    assert response.status_code == 200
+    timeline = response.json()["medical_record"]["timeline"]
+    problem_events = [event for event in timeline if event["event_type"] == "problem"]
+    assert len(problem_events) >= 1
+    assert "Otitis externa" in (problem_events[0]["title"] or "")
+    assert "recurrent" in (problem_events[0]["assessment"] or [])
+
+
+def test_scan_document_derives_reminder_events_from_timeline() -> None:
+    markdown = """10/01/2024 Vacuna anual
+Diagnostico: Revision preventiva
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("record.txt", markdown.encode("utf-8"), "text/plain")},
+        )
+
+    assert response.status_code == 200
+    timeline = response.json()["medical_record"]["timeline"]
+    reminder_events = [event for event in timeline if event["event_type"] == "reminder"]
+    assert len(reminder_events) >= 1
+    assert "done" in (reminder_events[0]["assessment"] or [])
+
+
+def test_scan_document_maps_english_labeled_happy_path_fields() -> None:
+    markdown = """owner_name: Sergio Martinez
+owner_contact: Tel: +34 600 000 000 | Email: sergio.mtz@vet-exotics-example.com
+pet_name: Pico
+chip_id: AV9900112233
+species: bird (Psittacus erithacus)
+breed: Congo African Grey Parrot
+date_of_birth: 2021-05-12 (3 years old)
+sex: male
+EVENT_01: visit
+date: 2024-04-10
+diagnosis: Dermatitis localizada por estrés ambiental y picaje conductual.
+treatment: Cambio inmediato a dieta de pellets.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("bird.docx", markdown.encode("utf-8"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    patient = payload["medical_record"]["patient"]
+    owner = payload["medical_record"]["owner"]
+    assert patient["name"]["value"] == "Pico"
+    assert patient["species"]["value"] == "bird"
+    assert patient["breed"]["value"] == "Congo African Grey Parrot"
+    assert patient["chip_id"]["value"] == "AV9900112233"
+    assert patient["birth_date"]["value"] == "2021-05-12"
+    assert patient["sex"]["value"] == "male"
+    assert patient["weight_kg"]["value"] in {None, "0.41"}
+    assert owner["name"]["value"] == "Sergio"
+    assert owner["surname"]["value"] == "Martinez"
+    assert owner["phone_number"]["value"] == "+34 600 000 000"
+    assert owner["email"]["value"] == "sergio.mtz@vet-exotics-example.com"
+    parsing_metadata = payload["parsing_metadata"]
+    assert parsing_metadata["mapped_fields_count"] >= 11
+    assert parsing_metadata["mapping_coverage_pct"] >= 85
+
+
+def test_scan_document_maps_cat_style_tagged_payload_without_injections() -> None:
+    markdown = """name=Mochi
+owner_name=Carla
+owner_surname=Vance
+species=cat
+breed=British Shorthair
+sex: female (Intact)
+Date of Birth: 2026-04-10
+chip_id=CAT99001122
+weight_kg=4.2
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    owner = response.json()["medical_record"]["owner"]
+    assert patient["name"]["value"] == "Mochi"
+    assert patient["sex"]["value"] == "female"
+    assert patient["sex"]["confidence"] >= 0.84
+    assert patient["birth_date"]["value"] == "2026-04-10"
+    assert owner["surname"]["value"] == "Vance"
+    assert "owner_name" not in patient["name"]["value"].lower()
+
+
+def test_scan_document_does_not_map_temperature_as_owner_email() -> None:
+    markdown = """Patient Name: Mochi
+Species: cat
+Environmental Needs: Kittens at this age cannot fully thermoregulate. Keep at a constant temperature of 26°C - 28°C.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    owner = response.json()["medical_record"]["owner"]
+    assert owner["email"]["value"] is None
+    assert owner["email"]["status"] in {"empty", "pending"}
+
+
+def test_scan_document_does_not_map_temperature_as_owner_phone_or_address() -> None:
+    markdown = """Patient Name: Mochi
+Species: cat
+Environmental Needs: Keep at a constant temperature of 26°C - 28°C.
+Address: 28°C
+Phone: 28°C
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    owner = response.json()["medical_record"]["owner"]
+    assert owner["phone_number"]["value"] is None
+    if owner["address"] is None:
+        assert owner["address"] is None
+    else:
+        assert owner["address"]["value"] is None
+
+
+def test_scan_document_prefers_patient_name_over_owner_name_label() -> None:
+    markdown = """Primary Account Holder: Elena Vance
+Owner Name: Elena Vance
+Patient Name: Mochi
+Species: dog
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("dog.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    owner = response.json()["medical_record"]["owner"]
+    assert patient["name"]["value"] == "Mochi"
+    assert owner["name"]["value"] in {"Elena Vance", "Elena"}
+
+
+def test_scan_document_maps_owner_phone_from_primary_contact_variants() -> None:
+    markdown = """Patient Name: Mochi
+Primary Contact: +44 20 7946 0123
+Primary Phone: +1 (555) 012-3456
+Contact: +1 (555) 012-3456
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    owner = response.json()["medical_record"]["owner"]
+    assert owner["phone_number"]["value"] in {"+44 20 7946 0123", "+1 (555) 012-3456"}
+
+
+def test_scan_document_uses_demographic_block_for_patient_and_owner() -> None:
+    markdown = """MASCOTA - ALYA
+Primary Account Holder: Elena Vance
+Species: cat
+EVENT 01: visit (Initial Checkout)
+Date: 2026-04-26
+Anamnesis: Alya was evaluated for first routine neonatal review.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("clinical_history1_1.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    owner = response.json()["medical_record"]["owner"]
+    assert patient["name"]["value"] == "ALYA"
+    assert owner["name"]["value"] in {"Elena Vance", "Elena"}
+    assert "initial checkout" not in (patient["name"]["value"] or "").lower()
+
+
+def test_scan_document_prefers_primary_account_holder_over_authorized_representative() -> None:
+    markdown = """Primary Account Holder: Elena Vance
+Authorized Representative: Gordon Freeman
+Patient Name: Mochi
+Species: cat
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    owner = response.json()["medical_record"]["owner"]
+    assert owner["name"]["value"] in {"Elena Vance", "Elena"}
+    assert owner["name"]["value"] not in {"Gordon Freeman", "Gordon"}
+
+
+def test_scan_document_timeline_ignores_demographic_header_and_uses_event_blocks() -> None:
+    markdown = """1. OWNER & LEGAL GUARDIAN INFORMATION
+Residential Address: 17 Black Mesa Research Way, London, UK.
+2. PATIENT BIOGRAPHICAL DATA
+Patient Name: Mochi
+Species: cat
+3. CLINICAL CHRONOLOGY
+EVENT 01: visit (Initial Neonatal Checkout)
+Date: 2026-04-26 | Time: 09:00 AM
+Attending: Dr. Judith Mossman
+Diagnosis: Healthy neonate feline.
+EVENT 02: administrative (Insurance & Microchip Registration)
+Date: 2026-04-26 | Time: 10:15 AM
+Clinical Observations: Finalization of neonatal paperwork.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    timeline = response.json()["medical_record"]["timeline"]
+    base_events = [event for event in timeline if event["event_id"].startswith("evt_0")]
+    assert len(base_events) >= 2
+    assert all(event["date"] == "2026-04-26" for event in base_events)
+    assert not any(event["event_type"] == "administrative" and "Residential Address" in (event.get("title") or "") for event in base_events)
+    problem_events = [event for event in timeline if event["event_type"] == "problem"]
+    assert all("Healthy neonate feline" in (event.get("title") or "") for event in problem_events)
+
+
+def test_scan_document_explicit_cat_chronology_keeps_only_three_base_events() -> None:
+    markdown = """3. CLINICAL CHRONOLOGY
+EVENT 01: visit (Initial Neonatal Checkout)
+Date: 2026-04-26 | Time: 09:00 AM
+Attending: Dr. Judith Mossman
+Anamnesis: First formal veterinary assessment.
+Diagnosis: Healthy neonate feline.
+EVENT 02: vaccination (Primary Immunity Stage 0)
+Date: 2026-04-26 | Time: 09:45 AM
+Clinical Observations: Start of vaccination and parasite protection schedule.
+EVENT 03: administrative (Insurance & Microchip Registration)
+Date: 2026-04-26 | Time: 10:15 AM
+Clinical Observations: Finalization of neonatal paperwork.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    timeline = response.json()["medical_record"]["timeline"]
+    base_events = [event for event in timeline if event["event_id"].startswith("evt_0")]
+    assert len(base_events) == 3
+    assert [event["event_type"] for event in base_events] == ["visit", "vaccination", "administrative"]
+    assert all(event["date"] == "2026-04-26" for event in base_events)
+    assert all(not event["event_id"].startswith("evt_problem_") for event in timeline)
+    assert all(not event["event_id"].startswith("evt_reminder_") for event in timeline)
+
+
+def test_scan_document_cat_event_payload_routes_content_to_anamnesis_assessment_and_lists() -> None:
+    markdown = """3. CLINICAL CHRONOLOGY
+EVENT 01: visit (Initial Neonatal Checkout)
+Date: 2026-04-26 | Time: 09:00 AM
+Attending: Dr. Judith Mossman
+Anamnesis: Mochi was brought in today for her first formal veterinary assessment.
+Diagnosis: Healthy neonate feline. No immediate congenital defects identified.
+Treatment: Monitor growth weekly and continue nursing support.
+Test: Hemogram baseline scheduled.
+Clinical Observations: Strong rooting reflex and healthy temperature profile.
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("cat.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    timeline = response.json()["medical_record"]["timeline"]
+    assert len(timeline) >= 1
+    first = timeline[0]
+    assert first["date"] == "2026-04-26"
+    assert "Mochi was brought in today" in (first.get("anamnesis") or "")
+    assert any("Clinical Observations" in item for item in (first.get("assessment") or []))
+    assert any("Healthy neonate feline" in diagnosis.get("text", "") for diagnosis in (first.get("diagnoses") or []))
+    assert any("Monitor growth weekly" in treatment.get("medication", "") for treatment in (first.get("treatments") or []))
+    assert any("Hemogram baseline" in test.get("test_name", "") for test in (first.get("tests") or []))
+
+
+def test_scan_document_maps_dog_style_tagged_payload() -> None:
+    markdown = """patient_name: Nala
+owner_name: Sergio
+owner_surname: Martinez
+species: dog
+breed: Labrador
+sex: male
+chip_id: DOG12345678
+weight: 22 kg
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("dog.pdf", markdown.encode("utf-8"), "application/pdf")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    assert patient["name"]["value"] == "Nala"
+    assert patient["species"]["value"] == "dog"
+    assert patient["chip_id"]["value"] == "DOG12345678"
+
+
+def test_scan_document_maps_bird_style_tagged_payload() -> None:
+    markdown = """pet_name=Pico
+owner_name=Sergio Martinez
+species=bird
+breed=Congo African Grey
+date_of_birth=2021-05-12
+sex=male
+chip_id=AV9900112233
+weight=410 g
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("bird.docx", markdown.encode("utf-8"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    assert patient["name"]["value"] == "Pico"
+    assert patient["species"]["value"] == "bird"
+    assert patient["weight_kg"]["value"] == "0.41"
+
+
+def test_scan_document_maps_monkey_style_payload_to_other_species() -> None:
+    markdown = """pet_name=Koko
+owner_name=Ana Ruiz
+species=monkey
+sex=female
+chip_id=MKY44556677
+weight=5.1 kg
+"""
+    with patch("app.api.routes.documents.get_document_processor") as mocked_get_processor:
+        mock_processor = AsyncMock()
+        mock_processor.process.return_value = _successful_processing_result(markdown=markdown)
+        mocked_get_processor.return_value = mock_processor
+
+        response = client.post(
+            "/api/v1/documents/scan",
+            files={"file": ("monkey.png", markdown.encode("utf-8"), "image/png")},
+        )
+
+    assert response.status_code == 200
+    patient = response.json()["medical_record"]["patient"]
+    assert patient["name"]["value"] == "Koko"
+    assert patient["species"]["value"] == "other"
 
 
 def test_scan_document_is_valid_medical_record_schema() -> None:

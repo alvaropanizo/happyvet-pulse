@@ -1,11 +1,29 @@
 from __future__ import annotations
 
 import hashlib
-import re
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import UploadFile
 
+from app.document_processing.mapper_coverage import (
+    calculate_confident_field_coverage,
+    calculate_model_mapping_coverage,
+)
+from app.document_processing.mapper_key_value import parse_key_value_lines
+from app.document_processing.mapper_scalar_rules import (
+    SCALAR_RULES,
+    extract_demographic_block,
+    extract_birth_date,
+    extract_chip_id,
+    extract_owner_phone,
+    extract_scalar_with_rule,
+    extract_weight_kg,
+)
+from app.document_processing.mapper_timeline import (
+    append_problem_and_reminder_events,
+    has_explicit_event_blocks,
+    map_timeline_events,
+)
 from app.document_processing.models import DocumentProcessingResult
 from app.schemas.medical_record import MedicalRecordDraft, SourceDocument
 
@@ -39,7 +57,7 @@ def map_markdown_to_medical_record(
     in `source_documents[].raw_text` for the next LLM refinement step.
     """
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     document_id_seed = f"{file.filename or 'document'}_{now.isoformat()}"
     document_id = hashlib.sha256(document_id_seed.encode("utf-8")).hexdigest()[:12]
 
@@ -61,36 +79,83 @@ def map_markdown_to_medical_record(
 
 
 def _apply_lightweight_structuring(*, draft: MedicalRecordDraft, raw_text: str) -> None:
-    """Best-effort field extraction from raw text to improve immediate UI readability."""
     if not raw_text.strip():
         return
 
-    name = _extract_value(raw_text, [r"(?:MASCOTA|PET)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ ]{1,40})"])
-    species = _extract_value(raw_text, [r"\b(CANINA?|FELINA?|CANINO|FELINO|DOG|CAT)\b"])
-    breed = _extract_value(raw_text, [r"(?:RAZA|BREED)\s*[:\-]?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ ]{2,50})"])
-    sex = _extract_value(raw_text, [r"(?:SEXO|SEX)\s*[:\-]?\s*(MACHO|HEMBRA|MALE|FEMALE)"])
-    chip = _extract_value(raw_text, [r"(?:CHIP|MICROCHIP)\s*[:\-]?\s*([0-9]{8,20})"])
-    weight = _extract_value(raw_text, [r"(?:PESO|WEIGHT)\s*[:\-]?\s*([0-9]+(?:[.,][0-9]+)?)"])
+    demographic_text = extract_demographic_block(raw_text)
+    parsed_pairs = parse_key_value_lines(demographic_text)
 
-    _assign_field(draft.patient.name, name, 0.62)
-    _assign_field(draft.patient.species, species, 0.7)
-    _assign_field(draft.patient.breed, breed, 0.6)
-    _assign_field(draft.patient.sex, sex, 0.72)
-    _assign_field(draft.patient.chip_id, chip, 0.82)
-    _assign_field(draft.patient.weight_kg, weight.replace(",", ".") if weight else None, 0.76)
+    name, name_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["name"])
+    species, species_raw_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["species_raw"])
+    species = species or "other"
+    breed, breed_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["breed"])
+    sex, sex_raw_conf, sex_raw = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["sex"])
 
+    birth_raw, birth_raw_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["birth_raw"])
+    birth_date = extract_birth_date(birth_raw) if birth_raw else extract_birth_date(demographic_text)
+    if not birth_date:
+        birth_date = extract_birth_date(raw_text)
+    birth_conf = 0.78 if birth_date else max(0.0, birth_raw_conf - 0.1)
 
-def _extract_value(text: str, patterns: list[str]) -> str | None:
-    for pattern in patterns:
-        match = re.search(pattern, text, flags=re.IGNORECASE)
-        if match:
-            value = match.group(1).strip()
-            return re.sub(r"\s{2,}", " ", value)
-    return None
+    chip_raw, chip_raw_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["chip_raw"])
+    chip = extract_chip_id(f"chip: {chip_raw}") if chip_raw else extract_chip_id(demographic_text)
+    if not chip:
+        chip = extract_chip_id(raw_text)
+    chip_conf = 0.82 if chip else max(0.0, chip_raw_conf - 0.2)
+
+    weight_raw, weight_raw_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["weight_raw"])
+    weight = extract_weight_kg(f"weight: {weight_raw}") if weight_raw else extract_weight_kg(demographic_text)
+    if not weight:
+        weight = extract_weight_kg(raw_text)
+    weight_conf = 0.76 if weight else max(0.0, weight_raw_conf - 0.15)
+
+    owner_name, owner_name_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["owner_name"])
+    owner_surname, owner_surname_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["owner_surname"])
+    owner_email, owner_email_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["owner_email"])
+    owner_address, owner_address_conf, _ = extract_scalar_with_rule(demographic_text, parsed_pairs, SCALAR_RULES["owner_address"])
+    owner_phone_number = extract_owner_phone(demographic_text)
+    if not owner_phone_number:
+        owner_phone_number = extract_owner_phone(raw_text)
+    owner_phone_conf = 0.61 if owner_phone_number else 0.0
+
+    if owner_name and not owner_surname:
+        parts = owner_name.split()
+        if len(parts) >= 2:
+            owner_name = parts[0]
+            owner_surname = " ".join(parts[1:])
+            owner_name_conf = max(owner_name_conf, 0.56)
+            owner_surname_conf = max(owner_surname_conf, 0.56)
+
+    _assign_field(draft.patient.name, name, min(0.95, max(name_conf, 0.0)))
+    _assign_field(draft.patient.species, species, max(species_raw_conf, 0.86 if species else 0.0))
+    _assign_field(draft.patient.breed, breed, min(0.9, max(breed_conf, 0.0)))
+    sex_floor = 0.84 if sex and sex_raw else (0.72 if sex else 0.0)
+    _assign_field(draft.patient.sex, sex, min(0.92, max(sex_raw_conf, sex_floor)))
+    _assign_field(draft.patient.birth_date, birth_date, min(0.93, max(birth_conf, 0.0)))
+    _assign_field(draft.patient.chip_id, chip, min(0.95, max(chip_conf, 0.0)))
+    _assign_field(draft.patient.weight_kg, weight, min(0.9, max(weight_conf, 0.0)))
+    _assign_field(draft.owner.name, owner_name, min(0.9, max(owner_name_conf, 0.0)))
+    _assign_field(draft.owner.surname, owner_surname, min(0.9, max(owner_surname_conf, 0.0)))
+    _assign_field(draft.owner.phone_number, owner_phone_number, min(0.92, max(owner_phone_conf, 0.0)))
+    _assign_field(draft.owner.email, owner_email, min(0.92, max(owner_email_conf, 0.0)))
+    if draft.owner.address is not None:
+        _assign_field(draft.owner.address, owner_address, min(0.85, max(owner_address_conf, 0.0)))
+
+    map_timeline_events(draft=draft, raw_text=raw_text, source_document_id=draft.source_documents[0].document_id)
+    append_problem_and_reminder_events(
+        draft,
+        allow_derived=not has_explicit_event_blocks(raw_text),
+    )
 
 
 def _assign_field(field, value: str | None, confidence: float) -> None:
     if value:
         field.value = value
         field.confidence = confidence
+        field.status = "automatically_approved" if confidence > 0.8 else "pending"
+__all__ = [
+    "map_markdown_to_medical_record",
+    "calculate_model_mapping_coverage",
+    "calculate_confident_field_coverage",
+]
 

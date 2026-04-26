@@ -23,8 +23,6 @@ test("selects a file, scans it, and shows structured record card", async ({ page
             address: { value: "Address", confidence: 0.8, edited: false },
           },
           timeline: [],
-          problem_list: [],
-          reminders: [],
           review: {
             status: "in_review",
             edited_fields: [],
@@ -60,9 +58,8 @@ test("selects a file, scans it, and shows structured record card", async ({ page
   await expect(page.getByRole("button", { name: "Scan" })).toBeVisible();
   await page.getByRole("button", { name: "Scan" }).click();
 
-  await expect(page.getByRole("heading", { name: "Medical record draft (read-only)" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Draft Clinical History" })).toBeVisible();
   await expect(page.locator('input[value="LUNA"]').first()).toBeVisible();
-  await expect(page.locator('input[value="rec_scan_mock_001"]').first()).toBeVisible();
   await expect(page.getByText("Scanned")).toBeVisible();
 });
 

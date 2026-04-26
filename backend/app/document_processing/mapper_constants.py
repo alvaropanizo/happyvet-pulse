@@ -1,0 +1,113 @@
+from __future__ import annotations
+
+DISALLOWED_LABEL_VALUES = {
+    "birth",
+    "birth date",
+    "birthdate",
+    "nacimiento",
+    "fecha nacimiento",
+    "fecha de nacimiento",
+    "date of birth",
+    "dob",
+    "sexo",
+    "sex",
+    "especie",
+    "species",
+    "raza",
+    "breed",
+    "chip",
+    "microchip",
+    "peso",
+    "weight",
+}
+
+BREED_KEYWORDS = (
+    "yorkshire terrier",
+    "yorkshire",
+    "labrador",
+    "golden retriever",
+    "bulldog",
+    "pastor aleman",
+    "pastor alemán",
+    "mestizo",
+)
+
+BIRTH_LABELS = (
+    "date_of_birth",
+    "birth",
+    "birth date",
+    "birthdate",
+    "date of birth",
+    "dob",
+    "nacimiento",
+    "fecha nacimiento",
+    "fecha de nacimiento",
+    "fec nacimiento",
+    "f. nacimiento",
+)
+
+NOISY_CAPTURE_TOKENS = (
+    "identificacion de propietario",
+    "identificación de propietario",
+    "propietario y paciente",
+    "this document certifies",
+    "este documento certifica",
+    "is authorized for the happyvet-pulse",
+    "authorized for the happyvet-pulse",
+    "happyvet-pulse",
+)
+
+KEY_ALIASES = {
+    "pet_name": ("pet_name", "patient_name", "patient name", "pet name", "pet", "patient", "mascota", "paciente"),
+    "owner_name": (
+        "owner_name",
+        "owner",
+        "owner name",
+        "primary account holder",
+        "account holder",
+        "propietario",
+        "tutor",
+        "authorized representative",
+    ),
+    "owner_surname": ("owner_surname", "owner surname", "surname", "apellido"),
+    "owner_email": ("owner_email", "email", "correo", "e-mail"),
+    "owner_phone": ("owner_phone", "owner phone", "phone", "telefono", "teléfono", "mobile", "movil", "móvil"),
+    "species": ("species", "especie"),
+    "breed": ("breed", "raza"),
+    "sex": ("sex", "sexo"),
+    "birth_date": (
+        "date_of_birth",
+        "date of birth",
+        "dateofbirth",
+        "birth",
+        "birth date",
+        "birthdate",
+        "dob",
+        "nacimiento",
+        "fecha de nacimiento",
+        "fecha nacimiento",
+        "fec nacimiento",
+    ),
+    "chip_id": ("chip_id", "microchip_id", "chip", "microchip"),
+    "weight_kg": ("weight_kg", "weight", "peso"),
+    "address": ("address", "direccion", "dirección", "domicilio"),
+}
+
+INLINE_FIELD_MARKERS = (
+    "owner_name",
+    "owner_surname",
+    "owner_email",
+    "owner_phone",
+    "owner_contact",
+    "address",
+    "pet_name",
+    "patient_name",
+    "species",
+    "breed",
+    "sex",
+    "chip_id",
+    "weight",
+    "weight_kg",
+    "date_of_birth",
+    "birth",
+)

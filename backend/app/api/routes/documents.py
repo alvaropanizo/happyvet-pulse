@@ -3,7 +3,11 @@ from fastapi import APIRouter, File, UploadFile
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
 from app.document_processing.factory import get_document_processor
-from app.document_processing.medical_record_mapper import map_markdown_to_medical_record
+from app.document_processing.medical_record_mapper import (
+    calculate_confident_field_coverage,
+    calculate_model_mapping_coverage,
+    map_markdown_to_medical_record,
+)
 
 
 logger = get_logger(__name__)
@@ -58,6 +62,16 @@ async def scan_document(file: UploadFile = File(...)) -> dict:
         )
 
     medical_record = map_markdown_to_medical_record(file=file, processing=processing)
+    if processing.parsing_metadata.integrity_score > 0.8:
+        medical_record.review.status = "automatically_approved"
+    mapped_count, total_count, coverage_pct = calculate_model_mapping_coverage(medical_record)
+    confident_count, confident_total, confident_pct = calculate_confident_field_coverage(medical_record)
+    processing.parsing_metadata.mapped_fields_count = mapped_count
+    processing.parsing_metadata.total_fields_count = total_count
+    processing.parsing_metadata.mapping_coverage_pct = coverage_pct
+    processing.parsing_metadata.confident_fields_count = confident_count
+    processing.parsing_metadata.confident_total_fields_count = confident_total
+    processing.parsing_metadata.confident_coverage_pct = confident_pct
     return {
         "medical_record": medical_record.model_dump(mode="json"),
         "parsing_metadata": processing.parsing_metadata.model_dump(mode="json"),

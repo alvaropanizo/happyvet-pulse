@@ -1,4 +1,5 @@
 import { Button, Container } from "react-bootstrap";
+import { Moon } from "lucide-react";
 
 import SiteFooter from "./SiteFooter";
 
@@ -21,7 +22,7 @@ function AppShell({ children, brandingAriaLabel, footerContent, themeFabAriaLabe
       </div>
 
       <Button type="button" className="hv-theme-fab" aria-label={themeFabAriaLabel}>
-        ◐
+        <Moon size={18} strokeWidth={2.2} />
       </Button>
     </main>
   );

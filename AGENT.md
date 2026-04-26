@@ -577,6 +577,74 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - Prefer small render helpers and reduced branch duplication in JSX (`App`, `DocumentPreview`, split/layout/footer components).
   - Preserve behavior and accessibility semantics while refactoring structure.
 
+## Milestone 6 Decisions (Current)
+
+### Backend parsing and model hardening
+
+- `/api/v1/documents/scan` includes parser-to-model mapping coverage metadata:
+  - `mapping_coverage_pct`
+  - `mapped_fields_count`
+  - `total_fields_count`
+- `backend/app/document_processing/medical_record_mapper.py` is the source of truth for extraction-to-model mapping rules:
+  - species normalization (`cat | dog | bird | other`)
+  - multilingual label detection + robust date/fuzzy parsing (`dateparser`, `rapidfuzz`)
+  - timeline-first enrichment with derived clinical events.
+- Mapper architecture is now split into focused modules for maintainability and deterministic hardening:
+  - `mapper_constants.py`, `mapper_common.py`, `mapper_key_value.py`, `mapper_scalar_rules.py`, `mapper_timeline.py`, `mapper_coverage.py`
+  - `medical_record_mapper.py` is kept as thin orchestration.
+- Local/host resilience rule:
+  - if `rapidfuzz` is unavailable, mapper fuzzy matching falls back to stdlib-based partial ratio logic (reduced quality but functional diagnostics).
+- Top-level `problem_list` and `reminders` are removed from model/contract payloads.
+  - Problem/reminder signals are represented as timeline events (`event_type: "problem"`, `"reminder"`).
+- Review/status automation and extraction status states include:
+  - `empty`, `pending`, `approved`, `automatically_approved`, `edited`
+  - automatic review promotion when parser integrity/confidence is high.
+- Scalar hardening decisions:
+  - patient/owner extraction prioritizes demographic/header block before clinical-history/event narrative.
+  - owner-name extraction priority prefers owner/account-holder labels over representative labels.
+  - owner contact validation is strict:
+    - email must be syntactically valid.
+    - phone must be realistic and not temperature/noise text.
+    - address requires meaningful textual pattern and excludes obvious noise.
+- Timeline hardening decisions:
+  - for explicit `EVENT N` chronicles, parser prioritizes explicit event block splitting.
+  - event dates prefer strict `Date/Fecha` labeled extraction and avoid broad fuzzy date grabs from unrelated lines.
+  - event payload routing:
+    - `Anamnesis` label -> `anamnesis`
+    - diagnosis/treatment/test labels -> typed lists
+    - remaining clinically relevant context -> `assessment`.
+  - header/demographic lines must not produce clinical timeline/problem events.
+  - derived `problem`/`reminder` generation is disabled when explicit event blocks exist to avoid inflation.
+  - event deduplication/signature filtering is applied to limit OCR/page-repeat duplication in long files.
+
+### Contract alignment rules
+
+- Shared contract remains `contracts/medical_record.schema.json`.
+- Schema naming in the contract uses `medicalRecordFinal`.
+- Owner contract shape is:
+  - required: `name`, `surname`, `phone_number`, `email`
+  - optional: `address`
+- UI required-field definitions are maintained in `frontend/src/contracts/uiRequiredFields.js` and enforced by `frontend/src/contracts/medicalRecordContract.test.js`.
+
+### Frontend review UX decisions
+
+- `MedicalRecordPanel` primary sections are:
+  - `Patient`
+  - `Owner`
+  - `Clinical History`
+  - `Overview`
+- Clinical history is tile-based with:
+  - compact headers + event chips/icons
+  - expand/collapse row editing
+  - add/remove
+  - select all/none and bulk delete with confirmation.
+- Event and section approval is derived from required-field validation status (not only from non-empty values).
+- Collapse behavior:
+  - auto-collapse only when the final required field transitions an event/section to approved
+  - text edits use idle debounce before collapse.
+- Milestone 6 wrap-up:
+  - raw extracted text is removed from the Overview summary content.
+
 ## How to Update Docs Each Milestone
 
 Use this checklist at the end of every milestone implementation:

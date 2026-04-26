@@ -8,3 +8,5 @@ PyMuPDF
 python-docx
 pytesseract
 pdf2image
+dateparser
+rapidfuzz

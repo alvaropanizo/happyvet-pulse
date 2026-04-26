@@ -41,6 +41,11 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 
 ![Milestone 5 Upload UI](docs/images/milestone5.png)
 
+#### Milestone 6 - Backend parsing hardening for demo-ready structured output
+- Focus moves to backend parsing quality from raw extraction to mapped model output.
+- Add stronger defaults and minimum data requirements so partially parsed documents still return a stable, review-friendly payload.
+- Build minimal showcase/demo data paths to validate behavior across different file types.
+
 ---
 
 ## Standard Plan and Implementation Notes
@@ -348,3 +353,127 @@ Polish the frontend experience and establish cleaner UI/text foundations that su
 - Implement **dark mode** behind the FAB and document theme tokens.  
 - Lift editable medical-record draft state from panel-local scope to app-level persistence + add save/approve API path.
 - Optional: add/update **screenshot** under `docs/images/` for Milestone 5 upload UI.
+
+## Milestone 6
+
+### Goal
+Improve backend parsing reliability by transforming raw extracted text into a more complete, deterministic structured model using sensible defaults, minimum requirements, and demo-ready baseline data.
+
+### Scope
+- Tighten parser-to-model mapping quality for `POST /api/v1/documents/scan`.
+- Define and enforce minimum required structured fields before returning successful parse results.
+- Introduce default/fallback value rules for missing but expected clinical fields.
+- Add a minimal showcase data strategy to demonstrate consistent behavior across multiple input formats.
+- Keep response shape aligned with shared contract (`contracts/medical_record.schema.json`) and frontend editable review flow.
+
+### Delivered / Implementation
+- Backend parsing quality and observability:
+  - added parser-to-model coverage metric in `/scan` metadata:
+    - `mapping_coverage_pct`
+    - `mapped_fields_count`
+    - `total_fields_count`
+  - updated mapping coverage calculation to match the current model (scalar field groups + timeline list group).
+  - added `backend/scripts/inspect_scan_mapping.py` to inspect extracted text vs mapped model payload quickly.
+- Mapper hardening and extraction quality:
+  - added timeline event extraction from raw text and normalized event creation.
+  - strengthened multilingual label detection (including Spanish variations like `nacimiento`) and fuzzy/robust parsing with `dateparser` + `rapidfuzz`.
+  - improved patient/owner extraction reliability (species normalization, better breed/name/birth-date/chip/weight handling).
+  - refactored mapper architecture into smaller concern-specific modules to reduce monolithic complexity and improve deterministic tuning:
+    - `mapper_constants.py`
+    - `mapper_common.py`
+    - `mapper_key_value.py`
+    - `mapper_scalar_rules.py`
+    - `mapper_timeline.py`
+    - `mapper_coverage.py`
+    - kept `medical_record_mapper.py` as a thin orchestration layer.
+  - added robust host-safe fuzzy fallback behavior when `rapidfuzz` is unavailable (stdlib matcher fallback), so local scripts can still run.
+  - hardened scalar extraction normalization/validation:
+    - patient/owner demographic-block-first extraction to avoid leaking timeline narrative into patient/owner fields.
+    - owner name priority: `Primary Account Holder`/owner labels preferred over representative labels.
+    - stricter owner contact validation to reject OCR noise:
+      - email must match email pattern.
+      - phone accepts realistic international formats and rejects temperature/noise artifacts.
+      - address requires meaningful text and rejects temperature-like captures.
+  - added mapper diagnostics/report tooling:
+    - `backend/scripts/report_mapper_provenance.py` (and container path mirror under `backend/app/scripts/`) to report:
+      - field provenance (`matched_key`, `line_index`, `match_type`)
+      - extraction metrics
+      - scalar confidence rollups (`approved > 0.8`, filled <= 0.8, empty, totals).
+  - timeline parsing hardening for explicit clinical-history files:
+    - event parsing now scopes to clinical section and prefers explicit `EVENT N` blocks.
+    - date extraction now prioritizes labeled `Date`/`Fecha` lines with strict parsing.
+    - event payload routing improved:
+      - explicit `Anamnesis` captured into `anamnesis`
+      - diagnosis/treatment/test labels routed into their respective lists
+      - remaining clinically relevant lines routed to `assessment`.
+    - prevented demographic/header noise from becoming timeline/problem events.
+    - controlled derived event creation (`problem`/`reminder`) when explicit event blocks are present.
+    - added timeline deduplication/signature filtering to reduce duplicated OCR/page-repeated events on long records.
+  - added derived event logic:
+    - `problem` events generated from repeated/clinical diagnosis mentions (`active`/`resolved`/`recurrent` signals in assessment/title).
+    - `reminder` events generated from timeline context (`pending`/`done` behavior for past dates).
+- Model and contract evolution:
+  - renamed schema definition to `medicalRecordFinal`.
+  - expanded owner contract: `name`, `surname`, `phone_number`, `email` required; `address` optional.
+  - added/used field statuses and review automation:
+    - `empty`, `pending`, `approved`, `automatically_approved`, `edited`
+    - auto-approve review when parsing `integrity_score > 0.8`.
+  - removed `problem_list` and `reminders` as top-level model arrays; consolidated them into `timeline` with new event types:
+    - `event_type: "problem"`
+    - `event_type: "reminder"`
+- Frontend review workflow overhaul:
+  - reworked `MedicalRecordPanel` into four sections:
+    - `Patient`
+    - `Owner`
+    - `Clinical History`
+    - `Overview`
+  - standardized monochromatic iconography using `lucide-react` across toolbar, section headers, timeline, and status visuals.
+  - improved split layout behavior:
+    - pre-scan: `50/50`
+    - post-scan: `35/65`
+  - improved field UX:
+    - consistent field heights
+    - stronger required-field outline/warnings
+    - field-level status actions for manual approval/edited state
+    - empty-state semantics for unfilled extracted fields
+  - rebuilt clinical history UX as tile-based events:
+    - compact header with icon/chips
+    - expand/collapse editing
+    - add/remove flows
+    - bulk select all/none + bulk delete with confirmation
+    - event-level required validation and status propagation to section-level approval
+    - collapse behavior fixed to trigger only when the final required field completes approval (with 5s idle debounce for text edits).
+  - summary/overview hardening:
+    - dynamic `Patient/Owner/History` reviewed counts
+    - dynamic totals for `Approved automatic`, `Approved / Edited by user`, `Needs review`
+    - all required-field computations aligned with contract-validated UI required-field config.
+  - removed raw extracted text from the `Overview` summary presentation for the milestone wrap-up.
+  - maintainability-focused refactor pass on the medical record frontend:
+    - extracted a shared confirm dialog primitive and removed duplicated modal markup.
+    - centralized status and field option constants in dedicated modules.
+    - split the previously large `MedicalRecordPanel` into section-level components (`Patient`, `Owner`, `Clinical History`, `Overview`) and dedicated timeline editor component.
+    - moved timeline/model/status logic into feature hooks and selectors (`useTimelineSelection`, `useSectionCollapse`, draft controller hook, computed selectors) so the panel acts mainly as orchestration.
+    - introduced a `frontend/src/features/medical-record/` structure and physically migrated medical record-specific components/constants/utils there.
+    - removed legacy icon wrapper files in `frontend/src/components/icons/` and switched toolbar/upload to direct `lucide-react` icons.
+
+### Testing and CI
+- Added/updated backend tests in `backend/tests/test_upload.py` for:
+  - mapping coverage metadata changes
+  - parser-derived timeline problem/reminder events
+  - timeline/status behavior aligned with model changes.
+  - demographic-block-first patient/owner extraction behavior.
+  - owner-name priority selection (`Primary Account Holder` vs representative labels).
+  - owner email/phone/address noise-rejection regressions.
+  - explicit-event timeline block parsing, payload routing, and deduplication behavior on cat-style chronology.
+- Added/updated frontend tests (`App`, contract tests, e2e smoke/real) for:
+  - updated clinical history header and section behavior
+  - required-field alignment with contract expectations
+  - timeline event validation and interaction flows.
+- Frontend refactor stability checks:
+  - repeated local validation of `App` and contract suites after each extraction/move step to ensure behavior parity while reducing component size/complexity.
+- Real benchmark command kept as non-blocking baseline:
+  - `cd frontend && npm run test:e2e:real -- --grep "real scan benchmark: report mapping coverage from fixtures"`
+- CI workflow remains the same pipeline shape, with milestone-specific assertions expanded.
+
+### Next step
+- Milestone 6 wrap-up complete. Next milestone can focus on persistence/workflow closure (save/review lifecycle APIs), plus additional parser quality gains from expanded multilingual fixtures.
