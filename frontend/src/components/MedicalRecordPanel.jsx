@@ -28,6 +28,11 @@ import {
   computeTimelineSectionStatus,
 } from "../features/medical-record/selectors/medicalRecordSelectors";
 
+const DEV_CONFIDENCE_ENABLED = (() => {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("dev") === "true";
+})();
+
 function displayValue(fieldValue) {
   const value = fieldValue?.value;
   return value === null || value === undefined || value === "" ? "" : String(value);
@@ -89,6 +94,9 @@ function EditableFieldValue({
   const showStatus = !showMissingRequired && !["empty"].includes(fieldValue?.status ?? "empty");
   const statusMeta = getStatusMeta(fieldValue?.status ?? "pending");
   const requiredFieldLabel = fieldPath?.split(".").pop() ?? fieldPath;
+  const numericConfidence = Number(fieldValue?.confidence);
+  const hasConfidence = Number.isFinite(numericConfidence);
+  const normalizedConfidence = hasConfidence ? Math.max(0, Math.min(1, numericConfidence)) : null;
   return (
     <Form.Group as={Col} md={md}>
       <Form.Label className="mb-1 hv-form-field-label">
@@ -140,6 +148,11 @@ function EditableFieldValue({
             <span className="hv-field-status-text-icon"><statusMeta.Icon size={14} strokeWidth={2.2} /></span>
             <span>{statusMeta.text}</span>
           </button>
+        ) : null}
+        {DEV_CONFIDENCE_ENABLED && hasConfidence ? (
+          <small className="hv-dev-confidence-chip" title="Mapper confidence (debug)">
+            conf: {normalizedConfidence.toFixed(2)}
+          </small>
         ) : null}
       </div>
     </Form.Group>

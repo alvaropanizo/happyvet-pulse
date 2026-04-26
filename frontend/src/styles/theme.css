@@ -629,6 +629,20 @@ body.hv-drag-active * {
   color: var(--hv-color-status-muted);
 }
 
+.hv-dev-confidence-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid #d7d9df;
+  background: #f6f7f9;
+  color: #3f434d;
+  font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  font-size: 0.66rem;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+
 .hv-section-header {
   width: 100%;
   display: inline-flex;

@@ -27,7 +27,11 @@ function TimelineEventForm({
   EditableFieldComponent,
 }) {
   const formRef = useRef(null);
-  const timelineFieldValue = (fieldKey, value) => toTimelineFieldValue(value, getFieldStatus?.(fieldKey));
+  const timelineFieldValue = (fieldKey, value) => {
+    const fieldStatus = getFieldStatus?.(fieldKey);
+    const eventConfidence = fieldStatus === "automatically_approved" ? 0.95 : event.status === "approved" ? 0.9 : undefined;
+    return toTimelineFieldValue(value, fieldStatus, eventConfidence);
+  };
 
   useEffect(() => {
     if (!autoFocus || !formRef.current) return;

@@ -91,6 +91,35 @@ function UploadPanel({
     }
   };
 
+  const inferMimeType = (fileName) => {
+    const extension = String(fileName ?? "").toLowerCase().split(".").pop();
+    if (extension === "pdf") return "application/pdf";
+    if (extension === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    if (extension === "png") return "image/png";
+    if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+    if (extension === "txt") return "text/plain";
+    return "application/octet-stream";
+  };
+
+  const loadSampleFile = async (fileName) => {
+    if (!fileName) return;
+    const fixturePath = `/tests/e2e/fixtures/${encodeURIComponent(fileName)}`;
+    try {
+      const response = await fetch(fixturePath);
+      if (!response.ok) {
+        throw new Error(`Failed to load sample fixture: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type || inferMimeType(fileName) });
+      handleFile(file);
+    } catch (error) {
+      // Fallback keeps pills usable even if fixture files are not publicly served in some environments.
+      const fallbackFile = new File([""], fileName, { type: inferMimeType(fileName) });
+      handleFile(fallbackFile);
+      console.warn("[UploadPanel] Could not fetch sample file, using empty fallback file instead.", error);
+    }
+  };
+
   return (
     <section className="hv-upload-panel-shell">
       {isPageDragging ? (
@@ -134,7 +163,7 @@ function UploadPanel({
             {content.caption}
           </p>
         </Card.Body>
-        <UploadDropzoneFooter content={content} />
+        <UploadDropzoneFooter content={content} onSampleSelect={loadSampleFile} />
       </Card>
 
       <input

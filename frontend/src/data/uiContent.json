@@ -46,9 +46,10 @@
     "footerSupportLine": "Support for PDFs, images, and text docs from any veterinary clinic",
     "samplePillsIntro": "Don't have a document? try one of our samples:",
     "sampleFiles": [
-      { "fileName": "clinical_history1.txt" },
-      { "fileName": "marley_record.pdf" },
-      { "fileName": "visit_notes.docx" }
+      { "fileName": "cat.pdf" },
+      { "fileName": "dog.pdf" },
+      { "fileName": "bird.docx" },
+      { "fileName": "monkey.png" }
     ],
     "dragOverlayHint": "Drop file anywhere to upload",
     "scanButton": "Scan",

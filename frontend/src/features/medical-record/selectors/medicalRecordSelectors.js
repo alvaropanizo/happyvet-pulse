@@ -61,7 +61,9 @@ export function buildRequiredBreakdown(draft, getTimelineFieldStatus) {
   const patientRequiredStatuses = patientRequiredFieldKeys.map((fieldKey) => draft.patient[fieldKey]?.status ?? "empty");
   const ownerRequiredStatuses = ownerRequiredFieldKeys.map((fieldKey) => draft.owner[fieldKey]?.status ?? "empty");
   const timelineRequiredStatuses = draft.timeline.flatMap((event) =>
-    REQUIRED_TIMELINE_FIELDS.map((fieldKey) => getTimelineFieldStatus(event.event_id, fieldKey, event?.[fieldKey])),
+    REQUIRED_TIMELINE_FIELDS.map((fieldKey) =>
+      getTimelineFieldStatus(event.event_id, fieldKey, event?.[fieldKey], event?.status ?? "needs_review"),
+    ),
   );
 
   const patientReviewedCount = patientRequiredStatuses.filter(isReviewedStatus).length;

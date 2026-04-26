@@ -378,6 +378,37 @@ Improve backend parsing reliability by transforming raw extracted text into a mo
   - added timeline event extraction from raw text and normalized event creation.
   - strengthened multilingual label detection (including Spanish variations like `nacimiento`) and fuzzy/robust parsing with `dateparser` + `rapidfuzz`.
   - improved patient/owner extraction reliability (species normalization, better breed/name/birth-date/chip/weight handling).
+  - refactored mapper architecture into smaller concern-specific modules to reduce monolithic complexity and improve deterministic tuning:
+    - `mapper_constants.py`
+    - `mapper_common.py`
+    - `mapper_key_value.py`
+    - `mapper_scalar_rules.py`
+    - `mapper_timeline.py`
+    - `mapper_coverage.py`
+    - kept `medical_record_mapper.py` as a thin orchestration layer.
+  - added robust host-safe fuzzy fallback behavior when `rapidfuzz` is unavailable (stdlib matcher fallback), so local scripts can still run.
+  - hardened scalar extraction normalization/validation:
+    - patient/owner demographic-block-first extraction to avoid leaking timeline narrative into patient/owner fields.
+    - owner name priority: `Primary Account Holder`/owner labels preferred over representative labels.
+    - stricter owner contact validation to reject OCR noise:
+      - email must match email pattern.
+      - phone accepts realistic international formats and rejects temperature/noise artifacts.
+      - address requires meaningful text and rejects temperature-like captures.
+  - added mapper diagnostics/report tooling:
+    - `backend/scripts/report_mapper_provenance.py` (and container path mirror under `backend/app/scripts/`) to report:
+      - field provenance (`matched_key`, `line_index`, `match_type`)
+      - extraction metrics
+      - scalar confidence rollups (`approved > 0.8`, filled <= 0.8, empty, totals).
+  - timeline parsing hardening for explicit clinical-history files:
+    - event parsing now scopes to clinical section and prefers explicit `EVENT N` blocks.
+    - date extraction now prioritizes labeled `Date`/`Fecha` lines with strict parsing.
+    - event payload routing improved:
+      - explicit `Anamnesis` captured into `anamnesis`
+      - diagnosis/treatment/test labels routed into their respective lists
+      - remaining clinically relevant lines routed to `assessment`.
+    - prevented demographic/header noise from becoming timeline/problem events.
+    - controlled derived event creation (`problem`/`reminder`) when explicit event blocks are present.
+    - added timeline deduplication/signature filtering to reduce duplicated OCR/page-repeated events on long records.
   - added derived event logic:
     - `problem` events generated from repeated/clinical diagnosis mentions (`active`/`resolved`/`recurrent` signals in assessment/title).
     - `reminder` events generated from timeline context (`pending`/`done` behavior for past dates).
@@ -430,6 +461,10 @@ Improve backend parsing reliability by transforming raw extracted text into a mo
   - mapping coverage metadata changes
   - parser-derived timeline problem/reminder events
   - timeline/status behavior aligned with model changes.
+  - demographic-block-first patient/owner extraction behavior.
+  - owner-name priority selection (`Primary Account Holder` vs representative labels).
+  - owner email/phone/address noise-rejection regressions.
+  - explicit-event timeline block parsing, payload routing, and deduplication behavior on cat-style chronology.
 - Added/updated frontend tests (`App`, contract tests, e2e smoke/real) for:
   - updated clinical history header and section behavior
   - required-field alignment with contract expectations

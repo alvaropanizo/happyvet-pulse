@@ -4,7 +4,7 @@ function DocumentPillIcon() {
   return <FileText aria-hidden="true" size={14} strokeWidth={2.1} className="hv-sample-pill-icon" />;
 }
 
-function UploadDropzoneFooter({ content }) {
+function UploadDropzoneFooter({ content, onSampleSelect }) {
   const samples = Array.isArray(content.sampleFiles) ? content.sampleFiles : [];
   const stopPropagation = (event) => event.stopPropagation();
 
@@ -24,6 +24,7 @@ function UploadDropzoneFooter({ content }) {
                 type="button"
                 className="hv-sample-pill"
                 aria-label={`Sample document ${item.fileName}`}
+                onClick={() => onSampleSelect?.(item.fileName)}
               >
                 <DocumentPillIcon />
                 <span>{item.fileName}</span>

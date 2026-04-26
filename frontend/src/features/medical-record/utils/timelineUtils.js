@@ -10,13 +10,33 @@ import {
   Syringe,
 } from "lucide-react";
 
-export function toTimelineFieldValue(value, statusOverride) {
+function confidenceFromStatus(status, hasValue) {
+  if (!hasValue) return 0.0;
+  switch (status) {
+    case "automatically_approved":
+      return 0.95;
+    case "approved":
+      return 0.9;
+    case "edited":
+      return 0.75;
+    case "pending":
+    default:
+      return 0.65;
+  }
+}
+
+export function toTimelineFieldValue(value, statusOverride, confidenceOverride) {
   const hasValue = value !== null && value !== undefined && String(value).trim() !== "";
+  const normalizedConfidence =
+    typeof confidenceOverride === "number" && Number.isFinite(confidenceOverride)
+      ? confidenceOverride
+      : confidenceFromStatus(statusOverride ?? (hasValue ? "pending" : "empty"), hasValue);
+  const status = statusOverride ?? (hasValue ? (normalizedConfidence > 0.8 ? "automatically_approved" : "pending") : "empty");
   return {
     value: value ?? "",
-    confidence: 0.0,
+    confidence: normalizedConfidence,
     edited: false,
-    status: statusOverride ?? (hasValue ? "pending" : "empty"),
+    status,
   };
 }
 

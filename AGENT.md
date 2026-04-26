@@ -589,11 +589,33 @@ Exact schema can evolve, but changes should be coordinated across both agents.
   - species normalization (`cat | dog | bird | other`)
   - multilingual label detection + robust date/fuzzy parsing (`dateparser`, `rapidfuzz`)
   - timeline-first enrichment with derived clinical events.
+- Mapper architecture is now split into focused modules for maintainability and deterministic hardening:
+  - `mapper_constants.py`, `mapper_common.py`, `mapper_key_value.py`, `mapper_scalar_rules.py`, `mapper_timeline.py`, `mapper_coverage.py`
+  - `medical_record_mapper.py` is kept as thin orchestration.
+- Local/host resilience rule:
+  - if `rapidfuzz` is unavailable, mapper fuzzy matching falls back to stdlib-based partial ratio logic (reduced quality but functional diagnostics).
 - Top-level `problem_list` and `reminders` are removed from model/contract payloads.
   - Problem/reminder signals are represented as timeline events (`event_type: "problem"`, `"reminder"`).
 - Review/status automation and extraction status states include:
   - `empty`, `pending`, `approved`, `automatically_approved`, `edited`
   - automatic review promotion when parser integrity/confidence is high.
+- Scalar hardening decisions:
+  - patient/owner extraction prioritizes demographic/header block before clinical-history/event narrative.
+  - owner-name extraction priority prefers owner/account-holder labels over representative labels.
+  - owner contact validation is strict:
+    - email must be syntactically valid.
+    - phone must be realistic and not temperature/noise text.
+    - address requires meaningful textual pattern and excludes obvious noise.
+- Timeline hardening decisions:
+  - for explicit `EVENT N` chronicles, parser prioritizes explicit event block splitting.
+  - event dates prefer strict `Date/Fecha` labeled extraction and avoid broad fuzzy date grabs from unrelated lines.
+  - event payload routing:
+    - `Anamnesis` label -> `anamnesis`
+    - diagnosis/treatment/test labels -> typed lists
+    - remaining clinically relevant context -> `assessment`.
+  - header/demographic lines must not produce clinical timeline/problem events.
+  - derived `problem`/`reminder` generation is disabled when explicit event blocks exist to avoid inflation.
+  - event deduplication/signature filtering is applied to limit OCR/page-repeat duplication in long files.
 
 ### Contract alignment rules
 

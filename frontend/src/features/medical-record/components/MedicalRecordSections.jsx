@@ -456,7 +456,9 @@ export function TimelineSection({
                           autoFocus={event.event_id === newTimelineEventId}
                           onUploadAttachments={(files) => addTimelineAttachmentPaths(event.timelineIndex, files)}
                           onFieldApprove={(fieldKey) => approveTimelineField(event.event_id, fieldKey)}
-                          getFieldStatus={(fieldKey) => getTimelineFieldStatus(event.event_id, fieldKey, event[fieldKey])}
+                          getFieldStatus={(fieldKey) =>
+                            getTimelineFieldStatus(event.event_id, fieldKey, event[fieldKey], event.status)
+                          }
                         />
                       </div>
                     ) : null}

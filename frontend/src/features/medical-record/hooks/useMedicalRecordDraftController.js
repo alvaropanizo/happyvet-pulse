@@ -16,10 +16,11 @@ export function useMedicalRecordDraftController({
   const [pendingDeleteSelectedTimelineIds, setPendingDeleteSelectedTimelineIds] = useState([]);
   const [timelineFieldStatuses, setTimelineFieldStatuses] = useState({});
 
-  const getTimelineFieldStatus = (eventId, fieldKey, value) => {
+  const getTimelineFieldStatus = (eventId, fieldKey, value, eventStatus = "needs_review") => {
     const statusKey = `${eventId}.${fieldKey}`;
     if (timelineFieldStatuses[statusKey]) return timelineFieldStatuses[statusKey];
-    return value !== null && value !== undefined && String(value).trim() !== "" ? "pending" : "empty";
+    if (value === null || value === undefined || String(value).trim() === "") return "empty";
+    return eventStatus === "approved" ? "automatically_approved" : "pending";
   };
 
   const getTimelineEventStatus = (event) => {
@@ -84,13 +85,13 @@ export function useMedicalRecordDraftController({
         const updated = { ...event, [field]: parseJsonIfPossible(value) };
         const resolvedEventId = updated.event_id || event.event_id;
         const previousRequiredStatuses = requiredTimelineFields.map((requiredField) =>
-          getTimelineFieldStatus(resolvedEventId, requiredField, event?.[requiredField]),
+          getTimelineFieldStatus(resolvedEventId, requiredField, event?.[requiredField], event?.status ?? "needs_review"),
         );
         const previousRequiredApproved = previousRequiredStatuses.every((status) => approvedFieldStatuses.has(status));
         const nextFieldStatus = value !== null && value !== undefined && String(value).trim() !== "" ? "edited" : "empty";
         const requiredStatuses = requiredTimelineFields.map((requiredField) => {
           if (requiredField === field) return nextFieldStatus;
-          return getTimelineFieldStatus(resolvedEventId, requiredField, updated?.[requiredField]);
+          return getTimelineFieldStatus(resolvedEventId, requiredField, updated?.[requiredField], event?.status ?? "needs_review");
         });
         const requiredApproved = requiredStatuses.every((status) => approvedFieldStatuses.has(status));
         if (!previousRequiredApproved && requiredApproved && requiredTimelineFields.includes(field)) {
@@ -215,7 +216,7 @@ export function useMedicalRecordDraftController({
         if ((event?.status ?? "needs_review") === "edited") return event;
         const requiredStatuses = requiredTimelineFields.map((requiredField) => {
           if (requiredField === fieldKey) return "approved";
-          return getTimelineFieldStatus(eventId, requiredField, event?.[requiredField]);
+          return getTimelineFieldStatus(eventId, requiredField, event?.[requiredField], event?.status ?? "needs_review");
         });
         const requiredApproved = requiredStatuses.every((status) => approvedFieldStatuses.has(status));
         const nextEventStatus = requiredApproved ? (requiredStatuses.includes("edited") ? "edited" : "approved") : "needs_review";

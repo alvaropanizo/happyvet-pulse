@@ -35,6 +35,18 @@ class ParsingMetadata(BaseModel):
         default=None,
         description="Total field groups considered in mapping_coverage_pct calculation.",
     )
+    confident_fields_count: Optional[int] = Field(
+        default=None,
+        description="Number of scalar fields with value and confidence > 0.8.",
+    )
+    confident_total_fields_count: Optional[int] = Field(
+        default=None,
+        description="Total scalar fields considered in confident_coverage_pct calculation.",
+    )
+    confident_coverage_pct: Optional[float] = Field(
+        default=None,
+        description="Percentage (0-100) of scalar fields confidently auto-approvable (>0.8).",
+    )
     reason: Optional[str] = Field(
         default=None, description="Optional explanation when meaningful_text is false."
     )

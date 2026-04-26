@@ -31,6 +31,9 @@
         "mapping_coverage_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "mapped_fields_count": { "type": ["integer", "null"], "minimum": 0 },
         "total_fields_count": { "type": ["integer", "null"], "minimum": 0 },
+        "confident_fields_count": { "type": ["integer", "null"], "minimum": 0 },
+        "confident_total_fields_count": { "type": ["integer", "null"], "minimum": 0 },
+        "confident_coverage_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
         "reason": { "type": ["string", "null"] }
       }
     },
