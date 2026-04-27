@@ -2,7 +2,7 @@
 
 ## Demo
 
-<video src="docs/videos/vetpulsedemo.mp4" width="100%" controls></video>
+▶️ [Watch demo video](docs/videos/vetpulsedemo.mp4)
 
 ## Frontend Overview
 The frontend is a React + Vite application focused on a human-in-the-loop review flow for veterinary documents.
@@ -44,7 +44,7 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - CORS enabled for local FE dev origin.
 - Shared JSON Schema contract validation on both backend and frontend tests.
 
-![Milestone 3 Upload UI](docs/images/milestone4.png)
+![Milestone 3 Upload UI](docs/images/Milestone4.png)
 
 #### Milestone 4 - Document ingestion, parsing architecture, performance-first "Gatekeeper" strategy
 - Document ingestion with a swappable parsing architecture and a real scan ingestion path, then pivot to a performance-first "Gatekeeper" strategy for lower latency and leaner runtime.
@@ -52,7 +52,7 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - Add parsing integrity metadata in response.
 - Pivot from heavy ML OCR stack to a lean Gatekeeper routing system with fast-path parsing and Tesseract fallback.
 
-![Milestone 4 Upload UI](docs/images/milestone4-1.png)
+![Milestone 4 Upload UI](docs/images/Milestone4-1.png)
 
 #### Milestone 5 - UI polish + parsing-ready frontend framing
 - Layered upload experience: marketing header (rotating “Convert …” line), large square dropzone (icon + title + caption), attached footer (support line + sample document pills as mock).
