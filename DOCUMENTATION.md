@@ -1,6 +1,26 @@
 # HappyVet Pulse Documentation
 
-## TL;DR
+## Demo
+
+<video src="docs/videos/vetpulsedemo.mp4" width="100%" controls></video>
+
+## Frontend Overview
+The frontend is a React + Vite application focused on a human-in-the-loop review flow for veterinary documents.
+Users upload a file, preview it, run scan, and then validate extracted data in an editable clinical form (Patient, Owner, Clinical History, Overview).
+UI text is centralized in uiContent.json, styles are driven by theme.css tokens (light/dark), and API interactions are isolated in hooks.
+
+![Frontend Architecture](docs/images/fe-doc1.png)
+![Frontend Architecture 2](docs/images/fe-doc2.png)
+
+## Backend Overview
+The backend is a FastAPI service that receives uploaded files, runs document extraction/parsing, maps results into a structured medical-record schema, and returns a review-ready payload for the frontend.
+It includes parsing metadata, quality/error handling, and size guards (including 1GB upload/scan limits).
+
+![Frontend Architecture](docs/images/be-doc1.png)
+![Frontend Architecture 2](docs/images/be-doc2.png)
+
+
+## TL;DR Plan and implementation 
 
 HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 
