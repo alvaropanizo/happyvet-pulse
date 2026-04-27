@@ -4,6 +4,12 @@ import { Upload } from "lucide-react";
 
 import UploadDropzoneFooter from "./UploadDropzoneFooter";
 
+const DEV_TOOLS_ENABLED = (() => {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("dev") === "true";
+})();
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1GB
+
 function UploadPanel({
   onFileSelected,
   content,
@@ -101,8 +107,36 @@ function UploadPanel({
     return "application/octet-stream";
   };
 
-  const loadSampleFile = async (fileName) => {
+  const createSyntheticSampleFile = (fileName, sizeMb) => {
+    const safeSizeMb = Math.max(1, Math.min(2048, Number(sizeMb) || 50));
+    const targetBytes = Math.floor(safeSizeMb * 1024 * 1024);
+    const mimeType = inferMimeType(fileName);
+    const placeholderFile = new File(["synthetic large upload sample placeholder"], fileName, { type: mimeType });
+    try {
+      Object.defineProperty(placeholderFile, "size", {
+        configurable: true,
+        value: targetBytes,
+      });
+    } catch {
+      // Fallback to real size if runtime blocks descriptor override.
+    }
+    return placeholderFile;
+  };
+
+  const visibleSampleFiles = (Array.isArray(content.sampleFiles) ? content.sampleFiles : []).filter((sample) => {
+    if (sample?.syntheticLargeFile === true && !DEV_TOOLS_ENABLED) return false;
+    return true;
+  });
+
+  const loadSampleFile = async (sampleEntry) => {
+    const sample = typeof sampleEntry === "string" ? { fileName: sampleEntry } : sampleEntry;
+    const fileName = sample?.fileName;
     if (!fileName) return;
+    if (sample?.syntheticLargeFile === true) {
+      const syntheticFile = createSyntheticSampleFile(fileName, sample.syntheticSizeMb);
+      handleFile(syntheticFile);
+      return;
+    }
     const fixturePath = `/tests/e2e/fixtures/${encodeURIComponent(fileName)}`;
     try {
       const response = await fetch(fixturePath);
@@ -155,15 +189,17 @@ function UploadPanel({
           onKeyDown={handleDropzoneBodyKeyDown}
           aria-label={`${content.primaryLabel}. ${content.caption}`}
         >
-          <Upload className="hv-material-upload-icon" size={48} strokeWidth={2.1} aria-hidden="true" />
-          <h2 className="h4 mt-3 mb-2 hv-title hv-dropzone-title">
-            {content.primaryLabel}
-          </h2>
+          <div className="hv-dropzone-primary-box">
+            <Upload className="hv-material-upload-icon" size={48} strokeWidth={2.1} aria-hidden="true" />
+            <h2 className="h4 mt-3 mb-2 hv-title hv-dropzone-title">
+              {content.primaryLabel}
+            </h2>
+          </div>
           <p className="mb-0 hv-upload-secondary hv-dropzone-caption">
             {content.caption}
           </p>
         </Card.Body>
-        <UploadDropzoneFooter content={content} onSampleSelect={loadSampleFile} />
+        <UploadDropzoneFooter content={{ ...content, sampleFiles: visibleSampleFiles }} onSampleSelect={loadSampleFile} />
       </Card>
 
       <input

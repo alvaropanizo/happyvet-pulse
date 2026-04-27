@@ -1,5 +1,5 @@
-import { Check, CheckSquare, ChevronDown, ChevronUp, OctagonAlert, Plus, ShieldCheck, Square, Trash2 } from "lucide-react";
-import { Accordion, ListGroup, Row } from "react-bootstrap";
+import { Check, CheckSquare, ChevronDown, ChevronUp, OctagonAlert, Plus, Square, Trash2 } from "lucide-react";
+import { Accordion, Row } from "react-bootstrap";
 
 import { isRequiredField } from "../../../contracts/uiRequiredFields";
 import { SEX_OPTIONS, SPECIES_OPTIONS } from "../constants/fieldOptions";
@@ -169,9 +169,9 @@ export function OwnerSection({
 export function OverviewSection({
   content,
   draft,
-  SummaryMetricComponent,
   SectionHeaderComponent,
   overviewIcon,
+  overviewSectionStatus,
   patientReviewedCount,
   patientRequiredTotal,
   ownerReviewedCount,
@@ -183,67 +183,86 @@ export function OverviewSection({
   totalManualApprovedCount,
   totalNeedsReviewCount,
   totalRequiredCount,
+  overviewSectionRef,
 }) {
+  const renderCountPair = (partial, total) => {
+    const safePartial = Number(partial) || 0;
+    const safeTotal = Number(total) || 0;
+    const isComplete = safeTotal > 0 && safePartial === safeTotal;
+
+    return (
+      <span className={`hv-overview-count-pair${isComplete ? " is-complete" : ""}`}>
+        <span className="hv-overview-count-pill">{safePartial}</span>
+        <span className="hv-overview-count-separator">/</span>
+        <span className="hv-overview-count-pill">{safeTotal}</span>
+      </span>
+    );
+  };
+
+  const attachmentCount = totalAttachments(draft.source_documents);
+  const timelineEventsReviewed = historyReviewedCount;
+  const timelineEventsTotal = historyRequiredTotal;
+
   return (
-    <Accordion.Item eventKey="overview">
+    <Accordion.Item eventKey="overview" ref={overviewSectionRef}>
       <Accordion.Header>
-        <SectionHeaderComponent title="Overview" Icon={overviewIcon} sectionStatus="approved" showWarning={false} />
+        <SectionHeaderComponent
+          title="Overview"
+          Icon={overviewIcon}
+          sectionStatus={overviewSectionStatus}
+          showWarning={overviewSectionStatus === "needs_review"}
+        />
       </Accordion.Header>
       <Accordion.Body>
         <h6 className="hv-title mb-2">{content.summarySectionTitle}</h6>
         <div className="hv-overview-summary-grid mb-3">
           <div className="hv-overview-summary-col">
             <div className="hv-overview-section-row">
-              <span>Patient: {patientReviewedCount}/{patientRequiredTotal} Reviewed</span>
-              {patientReviewedCount === patientRequiredTotal && patientRequiredTotal > 0 ? (
-                <Check size={16} strokeWidth={2.4} className="hv-overview-section-row-icon is-approved" />
-              ) : (
-                <OctagonAlert size={16} strokeWidth={2.2} className="hv-overview-section-row-icon is-warning" />
-              )}
+              <span>Patient - fields reviewed</span>
+              <span className="hv-overview-section-row-trailing">{renderCountPair(patientReviewedCount, patientRequiredTotal)}</span>
             </div>
             <div className="hv-overview-section-row">
-              <span>Owner: {ownerReviewedCount}/{ownerRequiredTotal} Reviewed</span>
-              {ownerReviewedCount === ownerRequiredTotal && ownerRequiredTotal > 0 ? (
-                <Check size={16} strokeWidth={2.4} className="hv-overview-section-row-icon is-approved" />
-              ) : (
-                <OctagonAlert size={16} strokeWidth={2.2} className="hv-overview-section-row-icon is-warning" />
-              )}
+              <span>Owner - fields reviewed</span>
+              <span className="hv-overview-section-row-trailing">{renderCountPair(ownerReviewedCount, ownerRequiredTotal)}</span>
             </div>
             <div className="hv-overview-section-row">
-              <span>History: {historyReviewedCount}/{historyRequiredTotal} Reviewed</span>
-              {historyReviewedCount === historyRequiredTotal && historyRequiredTotal > 0 ? (
-                <Check size={16} strokeWidth={2.4} className="hv-overview-section-row-icon is-approved" />
-              ) : (
-                <OctagonAlert size={16} strokeWidth={2.2} className="hv-overview-section-row-icon is-warning" />
-              )}
+              <span>History - fields reviewed</span>
+              <span className="hv-overview-section-row-trailing">{renderCountPair(historyReviewedCount, historyRequiredTotal)}</span>
             </div>
           </div>
           <div className="hv-overview-summary-col">
-            <ListGroup variant="flush">
-              <SummaryMetricComponent label={content.timelineCountLabel} value={draft.timeline.length} />
-              <SummaryMetricComponent label={content.sourceDocsCountLabel} value={draft.source_documents.length} />
-              <SummaryMetricComponent label={content.attachmentsCountLabel} value={totalAttachments(draft.source_documents)} />
-            </ListGroup>
+            <div className="hv-overview-section-row">
+              <span>{content.timelineCountLabel}</span>
+              <span className="hv-overview-section-row-trailing">{renderCountPair(timelineEventsReviewed, timelineEventsTotal)}</span>
+            </div>
+            <div className="hv-overview-section-row">
+              <span>{content.sourceDocsCountLabel}</span>
+              <span className="hv-overview-count-pill">{draft.source_documents.length}</span>
+            </div>
+            <div className="hv-overview-section-row">
+              <span>{content.attachmentsCountLabel}</span>
+              <span className="hv-overview-count-pill">{attachmentCount}</span>
+            </div>
           </div>
         </div>
 
         <div className="hv-overview-status-breakdown mb-4">
           <div className="hv-overview-breakdown-row">
-            <span className="hv-overview-breakdown-count">{totalAutoApprovedCount}/{totalRequiredCount}</span>
-            <span className="hv-overview-breakdown-label is-auto">
-              <ShieldCheck size={16} strokeWidth={2.1} /> Approved automatic
+            {renderCountPair(totalAutoApprovedCount, totalRequiredCount)}
+            <span className="hv-overview-breakdown-label is-auto" title="Automatically approved">
+              Automatically approved
             </span>
           </div>
           <div className="hv-overview-breakdown-row">
-            <span className="hv-overview-breakdown-count">{totalManualApprovedCount}/{totalRequiredCount}</span>
-            <span className="hv-overview-breakdown-label is-manual">
-              <Check size={16} strokeWidth={2.3} /> Approved / Edited by user
+            {renderCountPair(totalManualApprovedCount, totalRequiredCount)}
+            <span className="hv-overview-breakdown-label is-manual" title="Approved / Edited by user">
+              Approved / Edited by user
             </span>
           </div>
           <div className="hv-overview-breakdown-row">
-            <span className="hv-overview-breakdown-count">{totalNeedsReviewCount}/{totalRequiredCount}</span>
-            <span className="hv-overview-breakdown-label is-review">
-              <OctagonAlert size={16} strokeWidth={2.1} /> Needs review
+            {renderCountPair(totalNeedsReviewCount, totalRequiredCount)}
+            <span className="hv-overview-breakdown-label is-review" title="Needs review">
+              Needs review
             </span>
           </div>
         </div>
@@ -382,7 +401,7 @@ export function TimelineSection({
                     >
                       <div className="hv-timeline-tile-left">
                         <span className={`hv-timeline-tile-status-icon hv-timeline-tile-status-icon--${eventStatus}`}>
-                          {eventStatus === "approved" || eventStatus === "edited" ? (
+                          {eventStatus === "approved" || eventStatus === "edited" || eventStatus === "automatically_approved" ? (
                             <Check size={14} strokeWidth={2.4} />
                           ) : (
                             <OctagonAlert size={14} strokeWidth={2.2} />

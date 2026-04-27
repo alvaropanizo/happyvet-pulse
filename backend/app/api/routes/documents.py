@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Request, UploadFile
 
 from app.core.exceptions import AppError
 from app.core.logging import get_logger
@@ -13,13 +13,38 @@ from app.document_processing.medical_record_mapper import (
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+MAX_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1GB
+
+
+def _validate_request_size_from_headers(request: Request) -> None:
+    content_length = request.headers.get("content-length")
+    if not content_length:
+        return
+    try:
+        size_bytes = int(content_length)
+    except (TypeError, ValueError):
+        return
+    if size_bytes > MAX_UPLOAD_BYTES:
+        raise AppError(
+            status_code=413,
+            code="FILE_TOO_LARGE",
+            message="File exceeds the 1GB upload limit.",
+        )
 
 
 @router.post("/upload")
-async def upload_document(file: UploadFile = File(...)) -> dict[str, str | int]:
+async def upload_document(request: Request, file: UploadFile = File(...)) -> dict[str, str | int]:
     """Receive a document and return lightweight metadata."""
+    _validate_request_size_from_headers(request)
     logger.info("Received upload request for filename=%s", file.filename or "unknown")
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise AppError(
+            status_code=413,
+            code="FILE_TOO_LARGE",
+            message="File exceeds the 1GB upload limit.",
+        )
+
 
     if not content:
         logger.warning("Rejected empty upload for filename=%s", file.filename or "unknown")
@@ -47,8 +72,9 @@ async def upload_document(file: UploadFile = File(...)) -> dict[str, str | int]:
 
 
 @router.post("/scan")
-async def scan_document(file: UploadFile = File(...)) -> dict:
+async def scan_document(request: Request, file: UploadFile = File(...)) -> dict:
     """Parse uploaded document and map extracted text into medical record draft."""
+    _validate_request_size_from_headers(request)
     logger.info("Triggered scan endpoint for filename=%s", file.filename or "unknown")
 
     processor = get_document_processor(file)

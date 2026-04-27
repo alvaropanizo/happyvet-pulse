@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "react-bootstrap";
 
 import FileQuickPreviewThumb from "./FileQuickPreviewThumb";
@@ -8,18 +8,25 @@ import { getFileExtension, getPreviewType } from "../utils/filePreview";
 const DEFAULT_IMAGE_THUMB_URL =
   "https://www.barkibu.com/images/templates/pre-sales/dog-and-cat.svg";
 
-function ImagePreview({ fileUrl, fileName, imageAltPrefix }) {
+function ImagePreview({ fileUrl, fileName, imageAltPrefix, embedded = false }) {
+  const frameClassName = embedded
+    ? "hv-media-box hv-media-image-frame hv-media-image-frame--embedded"
+    : "hv-media-box hv-media-image-frame";
+  const imageClassName = embedded ? "hv-media-image hv-media-image--embedded" : "hv-media-image";
+
   return (
-    <img
-      src={fileUrl}
-      alt={`${imageAltPrefix} ${fileName}`}
-      className="hv-media-box hv-media-image"
-      onError={(event) => {
-        if (event.currentTarget.dataset.fallbackApplied === "true") return;
-        event.currentTarget.dataset.fallbackApplied = "true";
-        event.currentTarget.src = DEFAULT_IMAGE_THUMB_URL;
-      }}
-    />
+    <div className={frameClassName}>
+      <img
+        src={fileUrl}
+        alt={`${imageAltPrefix} ${fileName}`}
+        className={imageClassName}
+        onError={(event) => {
+          if (event.currentTarget.dataset.fallbackApplied === "true") return;
+          event.currentTarget.dataset.fallbackApplied = "true";
+          event.currentTarget.src = DEFAULT_IMAGE_THUMB_URL;
+        }}
+      />
+    </div>
   );
 }
 
@@ -83,6 +90,7 @@ function UnsupportedFallback({ extension, unsupportedTitle, unsupportedFormatPre
 function DocumentPreview({ file, content, embedded = false }) {
   const [textPreview, setTextPreview] = useState("");
   const [textError, setTextError] = useState("");
+  const [fileUrl, setFileUrl] = useState("");
 
   const extension = getFileExtension(file.name);
   const previewType = getPreviewType(file);
@@ -91,11 +99,13 @@ function DocumentPreview({ file, content, embedded = false }) {
   const isTxt = previewType === PREVIEW_TYPES.TEXT;
   const isDocx = previewType === PREVIEW_TYPES.DOCX;
 
-  const fileUrl = useMemo(() => URL.createObjectURL(file), [file]);
-
   useEffect(() => {
-    return () => URL.revokeObjectURL(fileUrl);
-  }, [fileUrl]);
+    const objectUrl = URL.createObjectURL(file);
+    setFileUrl(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [file]);
 
   useEffect(() => {
     setTextPreview("");
@@ -111,10 +121,18 @@ function DocumentPreview({ file, content, embedded = false }) {
 
   const mediaBlockByType = {
     [PREVIEW_TYPES.IMAGE]: (
-      <ImagePreview fileUrl={fileUrl} fileName={file.name} imageAltPrefix={content.imageAltPrefix} />
+      fileUrl ? (
+        <ImagePreview fileUrl={fileUrl} fileName={file.name} imageAltPrefix={content.imageAltPrefix} embedded={embedded} />
+      ) : (
+        <TextPreview textError="" textPreview="" textLoading={content.textLoading} />
+      )
     ),
     [PREVIEW_TYPES.PDF]: (
-      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+      fileUrl ? (
+        <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+      ) : (
+        <TextPreview textError="" textPreview="" textLoading={content.textLoading} />
+      )
     ),
     [PREVIEW_TYPES.TEXT]: (
       <TextPreview textError={textError} textPreview={textPreview} textLoading={content.textLoading} />
@@ -138,16 +156,19 @@ function DocumentPreview({ file, content, embedded = false }) {
   const mediaBlock = mediaBlockByType[previewType] ?? null;
 
   if (embedded) {
-    const embeddedBody = previewType === PREVIEW_TYPES.PDF ? (
-      <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
-    ) : (
+    const embeddedBody =
+      previewType === PREVIEW_TYPES.PDF ? (
+        <PdfPreview fileUrl={fileUrl} fileName={file.name} pdfTitlePrefix={content.pdfTitlePrefix} />
+      ) : isImage ? (
+        mediaBlock
+      ) : (
       <div className="hv-review-preview-thumb-stage">
         <FileQuickPreviewThumb file={file} size="lg" />
         <p className="mb-0 hv-review-preview-thumb-name" title={file.name}>
           {file.name}
         </p>
       </div>
-    );
+      );
 
     return (
       <section className="hv-review-preview-embedded" aria-label={content.title}>

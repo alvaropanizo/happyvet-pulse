@@ -23,7 +23,7 @@ export function getPatientApprovedIconBySpecies(speciesValue) {
 }
 
 export function getSectionStatusIcon(sectionKey, status, patientSpeciesValue) {
-  const isApproved = status === "approved" || status === "edited";
+  const isApproved = status === "approved" || status === "edited" || status === "automatically_approved";
   if (sectionKey === "patient") {
     return isApproved ? getPatientApprovedIconBySpecies(patientSpeciesValue) : Search;
   }

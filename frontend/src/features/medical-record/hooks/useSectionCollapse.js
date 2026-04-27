@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 export function useSectionCollapse({
   medicalRecord,
@@ -38,7 +38,7 @@ export function useSectionCollapse({
     });
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     clearAllSectionTimers();
     setActiveSectionKeys(["overview"]);
     setSparklingSections([]);

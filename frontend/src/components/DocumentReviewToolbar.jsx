@@ -25,6 +25,7 @@ function DocumentReviewToolbar({
   onRemoveClick,
   isScanning,
   scanComplete,
+  shouldNudgeScan = false,
 }) {
   const { base, extension } = splitFileName(file.name);
   const ext = extension || getFileExtension(file.name);
@@ -80,7 +81,12 @@ function DocumentReviewToolbar({
         ) : (
           <OverlayTrigger placement="bottom" delay={{ show: 200, hide: 100 }} overlay={scanTooltip}>
             <span className="hv-review-toolbar-scan-trigger">
-              <Button type="button" variant="secondary" className="hv-review-toolbar-scan-btn" onClick={onScan}>
+              <Button
+                type="button"
+                variant="secondary"
+                className={`hv-review-toolbar-scan-btn${shouldNudgeScan ? " hv-review-toolbar-scan-btn--nudge" : ""}`}
+                onClick={onScan}
+              >
                 <span className="hv-review-toolbar-scan-btn-label">{scanButtonLabel}</span>
                 <ArrowRight className="hv-review-toolbar-scan-btn-icon" size={18} strokeWidth={2.2} aria-hidden="true" />
               </Button>

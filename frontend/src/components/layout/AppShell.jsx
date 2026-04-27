@@ -1,9 +1,9 @@
 import { Button, Container } from "react-bootstrap";
-import { Moon } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 import SiteFooter from "./SiteFooter";
 
-function AppShell({ children, brandingAriaLabel, footerContent, themeFabAriaLabel }) {
+function AppShell({ children, brandingAriaLabel, footerContent, themeFabAriaLabel, isDarkMode = false, onToggleTheme }) {
   const brandingIconSrc = "/vetpulse-icon.svg";
 
   return (
@@ -21,8 +21,15 @@ function AppShell({ children, brandingAriaLabel, footerContent, themeFabAriaLabe
         <SiteFooter content={footerContent} />
       </div>
 
-      <Button type="button" className="hv-theme-fab" aria-label={themeFabAriaLabel}>
-        <Moon size={18} strokeWidth={2.2} />
+      <Button
+        type="button"
+        className="hv-theme-fab"
+        aria-label={themeFabAriaLabel}
+        title={themeFabAriaLabel}
+        aria-pressed={isDarkMode}
+        onClick={onToggleTheme}
+      >
+        {isDarkMode ? <Sun size={18} strokeWidth={2.2} /> : <Moon size={18} strokeWidth={2.2} />}
       </Button>
     </main>
   );

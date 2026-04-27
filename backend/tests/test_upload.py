@@ -52,6 +52,22 @@ def test_upload_document_requires_file_parameter() -> None:
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+def test_upload_document_rejects_file_larger_than_1gb_from_content_length_header() -> None:
+    response = client.post(
+        "/api/v1/documents/upload",
+        headers={"content-length": str((1024 * 1024 * 1024) + 1)},
+        files={"file": ("record.txt", b"small", "text/plain")},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "error": {
+            "code": "FILE_TOO_LARGE",
+            "message": "File exceeds the 1GB upload limit.",
+        }
+    }
+
+
 def _successful_processing_result(markdown: str = "## Parsed veterinary note\n\nPatient stable.") -> DocumentProcessingResult:
     return DocumentProcessingResult(
         structured_text_markdown=markdown,
@@ -111,6 +127,22 @@ def test_scan_document_returns_mapped_medical_record_and_parsing_metadata() -> N
     assert payload["processor_version"] is None
     assert payload["warnings"] == []
     assert payload["timings_ms"] is None
+
+
+def test_scan_document_rejects_file_larger_than_1gb_from_content_length_header() -> None:
+    response = client.post(
+        "/api/v1/documents/scan",
+        headers={"content-length": str((1024 * 1024 * 1024) + 1)},
+        files={"file": ("record.txt", b"small", "text/plain")},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "error": {
+            "code": "FILE_TOO_LARGE",
+            "message": "File exceeds the 1GB upload limit.",
+        }
+    }
 
 
 def test_scan_document_prefills_basic_patient_fields_from_raw_text() -> None:

@@ -645,6 +645,67 @@ Exact schema can evolve, but changes should be coordinated across both agents.
 - Milestone 6 wrap-up:
   - raw extracted text is removed from the Overview summary content.
 
+## Current Development Rules (Active)
+
+These rules reflect the latest cross-cutting implementation decisions and should be treated as current guardrails for all new changes.
+
+### Theme and styling system
+
+- Theme mode behavior:
+  - default mode is **light** on first visit.
+  - persisted user preference in `localStorage` key `hv-theme` is authoritative on subsequent visits.
+  - theme is applied through `document.documentElement[data-theme]` (`light` / `dark`).
+- Color system:
+  - all new colors must be introduced as CSS variables in `frontend/src/styles/theme.css`.
+  - avoid hardcoded `#hex` and raw `rgb/rgba` in component rules unless defining shared tokens in `:root`.
+  - dark theme must reuse the established palette/token set (no ad-hoc one-off dark-only literals in component rules).
+- Bootstrap integration:
+  - `.card` and `.accordion` surfaces must inherit theme variables (`--bs-card-*`, `--bs-accordion-*`) so container backgrounds/borders/text update with theme changes.
+
+### Upload and scan limits / fixtures
+
+- Hard limit for upload and scan payloads is **1GB**:
+  - frontend pre-checks in `frontend/src/hooks/uploadDocument.js`.
+  - backend validation in `backend/app/api/routes/documents.py` (`413 FILE_TOO_LARGE`).
+- Dev-only synthetic oversized sample:
+  - sample name is `big_file` in `frontend/src/data/uiContent.json`.
+  - shown only when URL includes `?dev=true`.
+  - synthetic file generation must override `File.size` without allocating huge in-memory content.
+
+### Medical record review/status behavior
+
+- Timeline required-field logic:
+  - untouched `automatically_approved` required fields must remain `automatically_approved` when another field in the same event is edited.
+  - event status derives from required fields and is considered complete when required fields are in `approved`, `automatically_approved`, or `edited`.
+- Overview/status rendering:
+  - overview counters use `Partial / Total` pill format and completion state coloring.
+  - section/header icon colors are status-driven (`needs_review`, `edited`, `approved`) and should not be hardcoded static green.
+  - top clinical header shows a green `Ready to save` badge when Patient + Owner + Clinical History are all fully validated.
+
+### Document review preview and scan-assistant behavior
+
+- Embedded preview behavior:
+  - image files should render in scrollable image frame mode (`hv-media-image-frame--embedded`) with width-first display.
+  - non-image embedded files (e.g. `.docx`, `.txt`, unsupported) should use the centered thumbnail stage (`hv-review-preview-thumb-stage`) with quick icon + filename.
+  - image preview type detection must consider extension fallback when MIME is missing/incorrect (`png`, `jpg`, `jpeg`, `webp`, `gif`).
+  - blob/object URL lifecycle in preview components must be effect-managed to avoid premature URL revocation.
+- Rive scan assistant:
+  - Rive file is expected at `frontend/public/animations/cat.riv`.
+  - idle state should play blink-only behavior by default; scan state can trigger tail/leg movement timelines.
+  - right review panel no longer uses the old spinner/skeleton stack as primary feedback; Rive panel is the main scan feedback surface.
+  - rotating scan quotes are sourced from `uiContent.json` (`documentReviewRightPanel.scanningRotationLines`) with randomized order and random start.
+  - pre-scan message text is sourced from `documentReviewRightPanel.readyToScanText`.
+
+### Test/update expectations for changes
+
+- Any behavioral change must include or update:
+  - frontend tests (`frontend/src/App.test.jsx` and relevant feature tests), and/or
+  - backend tests (`backend/tests/test_upload.py`) when endpoint behavior changes.
+- After touching `theme.css` or status logic, verify:
+  - lints are clean.
+  - core frontend tests pass.
+  - contract assumptions remain aligned with `contracts/medical_record.schema.json`.
+
 ## How to Update Docs Each Milestone
 
 Use this checklist at the end of every milestone implementation:
