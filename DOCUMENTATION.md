@@ -2,7 +2,7 @@
 
 ## Demo
 
-▶️ [Watch demo video](docs/videos/vetpulsedemo.mp4)
+▶️ [Watch demo video](docs/images/vetpulsedemo.mp4)
 
 ## Frontend Overview
 The frontend is a React + Vite application focused on a human-in-the-loop review flow for veterinary documents.
