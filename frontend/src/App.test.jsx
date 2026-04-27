@@ -62,9 +62,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton })).toBeInTheDocument();
     });
     expect(screen.getByText(uiContent.documentReviewToolbar.addedFilesSummary)).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: uiContent.documentReviewLayout.recordSkeletonAriaLabel }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: uiContent.documentReviewLayout.recordSkeletonAriaLabel })).toBeInTheDocument();
     expect(screen.getAllByText(uiContent.documentPreview.title).length).toBeGreaterThan(0);
     expect(screen.queryByRole("heading", { name: uiContent.uploadPanel.primaryLabel })).not.toBeInTheDocument();
   });
@@ -236,6 +234,25 @@ describe("App", () => {
       expect(screen.getByDisplayValue("NALA")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Draft Clinical History" })).toBeInTheDocument();
     });
+  });
+
+  it("blocks scan when file exceeds 1GB limit", async () => {
+    render(<App />);
+    const input = screen.getAllByLabelText(uiContent.uploadPanel.fileInputAriaLabel)[0];
+    const largeFile = new File(["x"], "too-large.txt", { type: "text/plain" });
+    Object.defineProperty(largeFile, "size", { configurable: true, value: 1024 * 1024 * 1024 + 1 });
+
+    fireEvent.change(input, { target: { files: [largeFile] } });
+    fireEvent.click(screen.getByRole("button", { name: uiContent.uploadPanel.scanButton }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(`${uiContent.uploadPanel.scanErrorPrefix} File exceeds the 1GB upload limit.`, {
+          exact: false,
+        }),
+      ).toBeInTheDocument();
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
 });

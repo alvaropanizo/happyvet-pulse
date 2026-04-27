@@ -47,6 +47,7 @@ const REQUIRED_PATHS = [
   "documentReviewLayout.layoutAriaLabel",
   "documentReviewLayout.recordSkeletonAriaLabel",
   "documentReviewLayout.scanningRightPanelAriaLabel",
+  "documentReviewRightPanel.readyToScanText",
   "documentReviewToolbar.addedFilesSummary",
   "documentReviewToolbar.badgeLetter",
   "documentReviewToolbar.scannedLabel",
@@ -69,6 +70,7 @@ const REQUIRED_PATHS = [
 ];
 
 const SAMPLE_FILES_PATH = "uploadPanel.sampleFiles";
+const SCANNING_LINES_PATH = "documentReviewRightPanel.scanningRotationLines";
 
 function getValueFromPath(object, path) {
   return path.split(".").reduce((accumulator, key) => accumulator?.[key], object);
@@ -95,6 +97,18 @@ function validateSampleFiles(uiContent) {
   }
 }
 
+function validateScanningLines(uiContent) {
+  const scanningLines = getValueFromPath(uiContent, SCANNING_LINES_PATH);
+  if (!Array.isArray(scanningLines) || scanningLines.length === 0) {
+    throw new Error(`Invalid uiContent.json. ${SCANNING_LINES_PATH} must be a non-empty array.`);
+  }
+
+  const invalidLine = scanningLines.find((line) => typeof line !== "string" || line.trim() === "");
+  if (invalidLine !== undefined) {
+    throw new Error(`Invalid uiContent.json. ${SCANNING_LINES_PATH} entries must be non-empty strings.`);
+  }
+}
+
 export function validateUiContent(uiContent) {
   const missingPaths = REQUIRED_PATHS.filter((path) => {
     const value = getValueFromPath(uiContent, path);
@@ -108,6 +122,7 @@ export function validateUiContent(uiContent) {
   }
 
   validateSampleFiles(uiContent);
+  validateScanningLines(uiContent);
 
   return uiContent;
 }

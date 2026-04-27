@@ -46,6 +46,11 @@ HappyVet Pulse is a Human-in-the-Loop veterinary IDP prototype:
 - Add stronger defaults and minimum data requirements so partially parsed documents still return a stable, review-friendly payload.
 - Build minimal showcase/demo data paths to validate behavior across different file types.
 
+#### Milestone 7 - Product hardening, bugfixing, loading feedback, and usability improvements
+- Consolidate parser/UI reliability fixes and reduce known edge-case regressions.
+- Improve perceived responsiveness with clearer loading states and animations in key user actions.
+- Raise day-to-day review usability with interaction and accessibility quality-of-life improvements.
+
 ---
 
 ## Standard Plan and Implementation Notes
@@ -455,6 +460,10 @@ Improve backend parsing reliability by transforming raw extracted text into a mo
     - moved timeline/model/status logic into feature hooks and selectors (`useTimelineSelection`, `useSectionCollapse`, draft controller hook, computed selectors) so the panel acts mainly as orchestration.
     - introduced a `frontend/src/features/medical-record/` structure and physically migrated medical record-specific components/constants/utils there.
     - removed legacy icon wrapper files in `frontend/src/components/icons/` and switched toolbar/upload to direct `lucide-react` icons.
+- Milestone 6 close-out stabilization notes:
+  - finalized section-level status propagation rules so required-field completion is the single source of truth for event and section approval.
+  - aligned overview counts with required-field definitions to avoid contract/UI drift on reviewed totals.
+  - documented the milestone as complete and ready for milestone-7 quality hardening slices without reopening schema-shape decisions.
 
 ### Testing and CI
 - Added/updated backend tests in `backend/tests/test_upload.py` for:
@@ -471,9 +480,87 @@ Improve backend parsing reliability by transforming raw extracted text into a mo
   - timeline event validation and interaction flows.
 - Frontend refactor stability checks:
   - repeated local validation of `App` and contract suites after each extraction/move step to ensure behavior parity while reducing component size/complexity.
+- Milestone 6 end-state checks:
+  - validated required-field status propagation in timeline rows and section summaries against shared contract assumptions.
+  - kept milestone-6 behavior stable while milestone-7 fixes were layered on top (no contract regressions introduced).
 - Real benchmark command kept as non-blocking baseline:
   - `cd frontend && npm run test:e2e:real -- --grep "real scan benchmark: report mapping coverage from fixtures"`
 - CI workflow remains the same pipeline shape, with milestone-specific assertions expanded.
 
 ### Next step
 - Milestone 6 wrap-up complete. Next milestone can focus on persistence/workflow closure (save/review lifecycle APIs), plus additional parser quality gains from expanded multilingual fixtures.
+
+## Milestone 7
+
+### Goal
+Harden the current end-to-end workflow by fixing high-impact bugs, improving loading feedback, and raising overall usability for the human review experience.
+
+### Scope
+- Reliability hardening across backend parsing and frontend review interactions.
+- Bugfix pass for regressions and edge cases discovered during milestone 6 validation.
+- Add/standardize loading animations and progress feedback for upload, scan, and heavy UI transitions.
+- Improve usability and accessibility in the review flow (clarity, focus, affordances, and interaction smoothness).
+- Keep shared schema contract compatibility and existing core API routes stable while improving behavior quality.
+
+### Delivered / Implementation
+- Timeline and status hardening:
+  - fixed timeline required-field status propagation so untouched `automatically_approved` fields remain stable when another field is edited.
+  - corrected timeline event completion logic to treat required fields in `approved`, `automatically_approved`, or `edited` as valid completion states.
+  - aligned section-level status aggregation to include `automatically_approved` consistently in timeline and overview calculations.
+- Header and status UX improvements:
+  - clinical header species icon is now driven by confirmed species status (`approved`, `automatically_approved`, `edited`) and reflected in the top-level header.
+  - section header icon colors are status-driven (`needs_review` warning palette, `approved` success palette, `edited` muted palette).
+  - added top-level “Ready to save” badge with green check in clinical header when Patient, Owner, and Clinical History sections are fully validated.
+  - overview header status now reflects overall document review state instead of fixed approved styling.
+- Overview consistency and usability:
+  - standardized counts to `Partial / Total` pill format across overview rows.
+  - completion pills turn green when `Partial = Total`.
+  - removed check/warning icons from overview breakdown rows and retained text + counts.
+  - added tooltips on breakdown labels (`Automatically approved`, `Approved / Edited by user`, `Needs review`).
+- Upload and scan reliability:
+  - added hard 1GB upload/scan limit on both frontend and backend.
+  - backend validates oversized requests from `Content-Length` and payload-size checks, returning `413 FILE_TOO_LARGE`.
+  - frontend blocks oversized files pre-request with clear error messaging.
+  - added dev-only synthetic `big_file` sample (`?dev=true`) for oversized-file testing without real large assets.
+  - refactored synthetic file generation to override `File.size` safely and avoid heavy memory allocation.
+- Preview and media rendering:
+  - improved image preview containers with bounded height + scrolling behavior.
+  - embedded image preview now supports width-first render with vertical scrolling for tall images.
+  - restored embedded non-image behavior (e.g. `.docx`, `.txt`) to small centered icon thumbnail stage.
+  - fixed image type detection to include extension-based fallback when MIME type is missing/incorrect.
+  - stabilized blob URL lifecycle in preview components to avoid premature URL revocation and false image fallback loads.
+  - centered embedded `.docx` quick preview icon + title in the preview stage.
+- Loading/engagement enhancements:
+  - removed right-panel skeleton placeholder and kept focused scan-state feedback.
+  - added scan CTA inactivity nudge (subtle bounce/glow) after 5s inactivity post-upload, until scan starts.
+  - integrated Rive animation support (`@rive-app/react-canvas`) for right-panel scan assistant:
+    - idle state supports blink loop.
+    - scan state triggers movement timelines.
+  - added rotating scan quotes under the Rive panel:
+    - static pre-scan message: `Ready to scan your files`.
+    - scan-time randomized quote rotation with random start and 3s cadence.
+    - content moved to `uiContent.json` and validated in runtime schema checks.
+- Theme and UI hardening:
+  - completed dark-mode toggle wiring with persisted preference and default light first-load behavior.
+  - audited and extracted remaining hardcoded CSS colors into variables where feasible; updated light/dark mappings.
+  - ensured cards/accordion containers inherit theme variables (not only headings), so full form surfaces change by theme.
+
+### Testing and CI
+- Backend tests:
+  - added oversized request coverage for `/api/v1/documents/upload` and `/api/v1/documents/scan` (`413 FILE_TOO_LARGE` via request headers).
+- Frontend tests:
+  - added scan-blocking coverage for >1GB file behavior in `frontend/src/App.test.jsx`.
+  - updated/maintained `App` and `filePreview` suites while adding Rive/rotator and preview lifecycle changes.
+  - validated image preview classification fallback behavior via extension-aware detection.
+- Quality gates:
+  - repeated local verification after each milestone-7 slice with:
+    - `npm run test -- src/App.test.jsx`
+    - `npm run test -- src/App.test.jsx src/utils/filePreview.test.js`
+  - milestone-7 changes kept shared contract compatibility intact (`contracts/medical_record.schema.json` unchanged in shape).
+
+### Next step
+- Milestone 7 is functionally complete for hardening + UX scope.
+- Next milestone can focus on persistence/closure workflows:
+  - save/finalize clinical record API flow,
+  - audit trail for reviewer actions,
+  - explicit post-save success navigation and retrieval UX.

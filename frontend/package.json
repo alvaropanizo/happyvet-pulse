@@ -17,6 +17,7 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@rive-app/react-canvas": "^4.28.2",
     "@tanstack/react-table": "^8.21.3",
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",

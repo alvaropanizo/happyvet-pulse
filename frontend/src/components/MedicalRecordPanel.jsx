@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Accordion, Badge, Button, Card, Col, Form, ListGroup } from "react-bootstrap";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Accordion, Button, Card, Col, Form } from "react-bootstrap";
 import {
   Check,
   ClipboardList,
@@ -18,6 +18,8 @@ import { useMedicalRecordDraftController } from "../features/medical-record/hook
 import { useTimelineSelection } from "../features/medical-record/hooks/useTimelineSelection";
 import { normalizeMedicalRecord, totalAttachments } from "../features/medical-record/utils/modelUtils";
 import {
+  getPatientApprovedIconBySpecies,
+  isFieldApprovedStatus,
   getSectionStatusFromFields,
   getSectionStatusIcon,
 } from "../features/medical-record/utils/statusAggregators";
@@ -159,15 +161,6 @@ function EditableFieldValue({
   );
 }
 
-function SummaryMetric({ label, value }) {
-  return (
-    <ListGroup.Item className="d-flex justify-content-between align-items-center px-0">
-      <span className="hv-info-text">{label}</span>
-      <Badge bg="secondary">{value}</Badge>
-    </ListGroup.Item>
-  );
-}
-
 function SectionHeader({ title, Icon, sectionStatus, showWarning = true, sparkling = false }) {
   const hasWarning = sectionStatus === "needs_review";
   return (
@@ -192,6 +185,7 @@ function EmptySectionValue({ message = "-" }) {
 }
 
 function MedicalRecordPanel({ medicalRecord, content }) {
+  const overviewSectionRef = useRef(null);
   const APPROVED_FIELD_STATUSES = new Set(["approved", "edited", "automatically_approved"]);
   const EDIT_COLLAPSE_IDLE_MS = 5000;
   const {
@@ -258,7 +252,6 @@ function MedicalRecordPanel({ medicalRecord, content }) {
     sparklingSections,
     scheduleSectionEditCollapse,
     toggleAccordionSection,
-    resetSectionState,
   } = useSectionCollapse({
     medicalRecord,
     patientSectionStatus,
@@ -277,14 +270,55 @@ function MedicalRecordPanel({ medicalRecord, content }) {
   useEffect(() => {
     resetDraftState();
     resetTimelineSelection();
-    resetSectionState();
+  }, [medicalRecord]);
+
+  useEffect(() => {
+    const scrollableAncestor = (element) => {
+      let current = element?.parentElement ?? null;
+      while (current) {
+        const computed = window.getComputedStyle(current);
+        const overflowY = computed.overflowY;
+        const canScroll = overflowY === "auto" || overflowY === "scroll";
+        if (canScroll && current.scrollHeight > current.clientHeight) return current;
+        current = current.parentElement;
+      }
+      return null;
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      const overviewElement = overviewSectionRef.current;
+      if (!overviewElement) return;
+      if (typeof overviewElement.scrollIntoView === "function") {
+        overviewElement.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      const container = scrollableAncestor(overviewElement);
+      if (container) {
+        container.scrollBy({ top: 36, behavior: "smooth" });
+      }
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [medicalRecord]);
 
   const patientSectionIcon = getSectionStatusIcon("patient", patientSectionStatus, draft.patient.species?.value);
   const ownerSectionIcon = getSectionStatusIcon("owner", ownerSectionStatus, draft.patient.species?.value);
   const timelineSectionIcon = getSectionStatusIcon("timeline", timelineSectionStatus, draft.patient.species?.value);
+  const overviewSectionStatus =
+    patientSectionStatus === "needs_review" || ownerSectionStatus === "needs_review" || timelineSectionStatus === "needs_review"
+      ? "needs_review"
+      : patientSectionStatus === "edited" || ownerSectionStatus === "edited" || timelineSectionStatus === "edited"
+        ? "edited"
+        : "approved";
+  const isDocumentReviewedForHeader = [patientSectionStatus, ownerSectionStatus, timelineSectionStatus].every(
+    (status) => status !== "needs_review",
+  );
   const { clinicalHeaderStatus, clinicalHeaderTitle, clinicalHeaderPills } = buildClinicalHeader(draft, timelineSectionStatus);
-  const clinicalHeaderIcon = getSectionStatusIcon("timeline", clinicalHeaderStatus, draft.patient.species?.value);
+  const hasConfirmedSpecies = isFieldApprovedStatus(draft.patient.species);
+  const clinicalHeaderIcon = hasConfirmedSpecies
+    ? getPatientApprovedIconBySpecies(draft.patient.species?.value)
+    : getSectionStatusIcon("timeline", clinicalHeaderStatus, draft.patient.species?.value);
   const ClinicalHeaderIcon = clinicalHeaderIcon;
   const {
     patientRequiredStatuses,
@@ -319,7 +353,11 @@ function MedicalRecordPanel({ medicalRecord, content }) {
       <Card.Body>
         <div className={`hv-clinical-header hv-clinical-header--${clinicalHeaderStatus}`}>
           <div className="hv-clinical-header-main">
-            <span className={`hv-section-header-icon-wrap hv-clinical-header-icon-wrap`}>
+            <span
+              className={`hv-section-header-icon-wrap hv-clinical-header-icon-wrap${
+                isDocumentReviewedForHeader ? " hv-clinical-header-icon-wrap--approved" : ""
+              }`}
+            >
               <ClinicalHeaderIcon size={28} strokeWidth={2.1} />
             </span>
             <div className="hv-clinical-header-content">
@@ -333,7 +371,12 @@ function MedicalRecordPanel({ medicalRecord, content }) {
               ) : null}
             </div>
           </div>
-          {clinicalHeaderStatus === "needs_review" ? (
+          {isDocumentReviewedForHeader ? (
+            <span className="hv-clinical-header-ready-badge" title="All required fields are validated. Ready to save.">
+              <Check size={16} strokeWidth={2.4} />
+              <span>Ready to save</span>
+            </span>
+          ) : clinicalHeaderStatus === "needs_review" ? (
             <span className="hv-section-header-warning" title="This section contains extracted fields that may require review">
               <OctagonAlert size={16} strokeWidth={2.2} />
             </span>
@@ -401,9 +444,9 @@ function MedicalRecordPanel({ medicalRecord, content }) {
             <OverviewSection
               content={content}
               draft={draft}
-              SummaryMetricComponent={SummaryMetric}
               SectionHeaderComponent={SectionHeader}
               overviewIcon={ClipboardList}
+              overviewSectionStatus={overviewSectionStatus}
               patientReviewedCount={patientReviewedCount}
               patientRequiredTotal={patientRequiredStatuses.length}
               ownerReviewedCount={ownerReviewedCount}
@@ -415,6 +458,7 @@ function MedicalRecordPanel({ medicalRecord, content }) {
               totalManualApprovedCount={totalManualApprovedCount}
               totalNeedsReviewCount={totalNeedsReviewCount}
               totalRequiredCount={totalRequiredCount}
+              overviewSectionRef={overviewSectionRef}
             />
           </Accordion>
         </Form>

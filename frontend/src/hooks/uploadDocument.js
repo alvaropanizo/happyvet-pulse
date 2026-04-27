@@ -1,6 +1,16 @@
 const API_BASE_URL = import.meta.env.BACKEND_API_BASE_URL || "http://localhost:8000";
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1GB
+const FILE_TOO_LARGE_MESSAGE = "File exceeds the 1GB upload limit.";
+
+function ensureFileWithinUploadLimit(file) {
+  if (!file) return;
+  if (Number(file.size) > MAX_UPLOAD_BYTES) {
+    throw new Error(FILE_TOO_LARGE_MESSAGE);
+  }
+}
 
 export async function uploadDocument(file) {
+  ensureFileWithinUploadLimit(file);
   const formData = new FormData();
   formData.append("file", file);
 
@@ -28,6 +38,7 @@ export async function scanDocument(file) {
   if (!file) {
     throw new Error("Please select a document before scanning.");
   }
+  ensureFileWithinUploadLimit(file);
 
   const formData = new FormData();
   formData.append("file", file);

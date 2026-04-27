@@ -15,17 +15,18 @@ export function useMedicalRecordDraftController({
   const [pendingDeleteTimelineIndex, setPendingDeleteTimelineIndex] = useState(null);
   const [pendingDeleteSelectedTimelineIds, setPendingDeleteSelectedTimelineIds] = useState([]);
   const [timelineFieldStatuses, setTimelineFieldStatuses] = useState({});
+  const stableApprovedEventStatuses = new Set(["approved", "edited", "automatically_approved"]);
 
   const getTimelineFieldStatus = (eventId, fieldKey, value, eventStatus = "needs_review") => {
     const statusKey = `${eventId}.${fieldKey}`;
     if (timelineFieldStatuses[statusKey]) return timelineFieldStatuses[statusKey];
     if (value === null || value === undefined || String(value).trim() === "") return "empty";
-    return eventStatus === "approved" ? "automatically_approved" : "pending";
+    return stableApprovedEventStatuses.has(eventStatus) ? "automatically_approved" : "pending";
   };
 
   const getTimelineEventStatus = (event) => {
     const requiredStatuses = requiredTimelineFields.map((fieldKey) =>
-      getTimelineFieldStatus(event.event_id, fieldKey, event?.[fieldKey]),
+      getTimelineFieldStatus(event.event_id, fieldKey, event?.[fieldKey], event?.status ?? "needs_review"),
     );
     const requiredApproved = requiredStatuses.every((status) => approvedFieldStatuses.has(status));
     if (!requiredApproved) return "needs_review";
@@ -213,7 +214,6 @@ export function useMedicalRecordDraftController({
       ...previous,
       timeline: previous.timeline.map((event) => {
         if (event.event_id !== eventId) return event;
-        if ((event?.status ?? "needs_review") === "edited") return event;
         const requiredStatuses = requiredTimelineFields.map((requiredField) => {
           if (requiredField === fieldKey) return "approved";
           return getTimelineFieldStatus(eventId, requiredField, event?.[requiredField], event?.status ?? "needs_review");

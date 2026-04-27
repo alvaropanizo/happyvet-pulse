@@ -20,7 +20,9 @@ export function buildTimelineRows(timeline) {
 export function computeTimelineSectionStatus(timeline, getTimelineEventStatus) {
   if (!timeline.length) return "needs_review";
   const resolvedStatuses = timeline.map((event) => getTimelineEventStatus(event));
-  const allApproved = resolvedStatuses.every((status) => status === "approved" || status === "edited");
+  const allApproved = resolvedStatuses.every(
+    (status) => status === "approved" || status === "edited" || status === "automatically_approved",
+  );
   if (!allApproved) return "needs_review";
   return resolvedStatuses.includes("edited") ? "edited" : "approved";
 }

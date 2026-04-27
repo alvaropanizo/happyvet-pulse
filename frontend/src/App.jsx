@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "react-bootstrap";
 
 import ConfirmModal from "./components/common/ConfirmModal";
@@ -15,7 +15,17 @@ import { scanDocument } from "./hooks/uploadDocument";
 import { validateUiContent } from "./utils/validateUiContent";
 
 const validatedUiContent = validateUiContent(uiContent);
-const ROTATING_UPLOAD_WORDS = ["files", "documents", "PDFs", "docs", "txt", "images"];
+const ROTATING_UPLOAD_WORDS = ["files", "documents", "images", "PDFs", ".doc/docx", ".txt"];
+const THEME_STORAGE_KEY = "hv-theme";
+const SCAN_NUDGE_IDLE_MS = 3000;
+
+function getInitialDarkMode() {
+  if (typeof window === "undefined") return false;
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "dark") return true;
+  if (stored === "light") return false;
+  return false;
+}
 
 function App() {
   const [medicalRecord, setMedicalRecord] = useState(() => getInitialMedicalRecordState());
@@ -24,6 +34,45 @@ function App() {
   const [scanError, setScanError] = useState("");
   const [scanCompleted, setScanCompleted] = useState(false);
   const [showRemoveFileConfirm, setShowRemoveFileConfirm] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(getInitialDarkMode);
+  const [shouldNudgeScan, setShouldNudgeScan] = useState(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-theme", isDarkMode ? "dark" : "light");
+    window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? "dark" : "light");
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    const shouldTrackInactivity = Boolean(selectedFile) && !scanCompleted && !isScanning;
+    if (!shouldTrackInactivity) {
+      setShouldNudgeScan(false);
+      return undefined;
+    }
+
+    let idleTimeoutId = null;
+    const activityEvents = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
+
+    const restartIdleTimer = () => {
+      if (idleTimeoutId) window.clearTimeout(idleTimeoutId);
+      setShouldNudgeScan(false);
+      idleTimeoutId = window.setTimeout(() => {
+        setShouldNudgeScan(true);
+      }, SCAN_NUDGE_IDLE_MS);
+    };
+
+    restartIdleTimer();
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, restartIdleTimer, { passive: true });
+    });
+
+    return () => {
+      if (idleTimeoutId) window.clearTimeout(idleTimeoutId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, restartIdleTimer);
+      });
+    };
+  }, [selectedFile, scanCompleted, isScanning]);
 
   const handleFileSelected = (file) => {
     setSelectedFile(file);
@@ -74,6 +123,7 @@ function App() {
           onRemoveClick={() => setShowRemoveFileConfirm(true)}
           isScanning={isScanning}
           scanComplete={scanCompleted}
+          shouldNudgeScan={shouldNudgeScan}
         />
       </Card>
       <DocumentPreview file={selectedFile} content={validatedUiContent.documentPreview} embedded />
@@ -91,6 +141,7 @@ function App() {
       scanErrorPrefix={validatedUiContent.uploadPanel.scanErrorPrefix}
       skeletonAriaLabel={validatedUiContent.documentReviewLayout.recordSkeletonAriaLabel}
       scanningAriaLabel={validatedUiContent.documentReviewLayout.scanningRightPanelAriaLabel}
+      content={validatedUiContent.documentReviewRightPanel}
     />
   );
 
@@ -100,6 +151,8 @@ function App() {
         brandingAriaLabel={validatedUiContent.app.brandingAriaLabel}
         footerContent={validatedUiContent.app.footer}
         themeFabAriaLabel={validatedUiContent.app.themeFabAriaLabel}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode((previous) => !previous)}
       >
         <div key={showReviewSplit ? "review" : "upload"} className="hv-step-transition">
           {isUploadStep ? (

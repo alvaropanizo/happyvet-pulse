@@ -24,7 +24,7 @@ function UploadDropzoneFooter({ content, onSampleSelect }) {
                 type="button"
                 className="hv-sample-pill"
                 aria-label={`Sample document ${item.fileName}`}
-                onClick={() => onSampleSelect?.(item.fileName)}
+                onClick={() => onSampleSelect?.(item)}
               >
                 <DocumentPillIcon />
                 <span>{item.fileName}</span>

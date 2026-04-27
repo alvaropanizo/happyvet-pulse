@@ -7,7 +7,8 @@ export function getFileExtension(fileName) {
 
 export function getPreviewType(file) {
   const extension = getFileExtension(file.name);
-  const isImage = file.type.startsWith("image/");
+  const isImageExtension = ["png", "jpg", "jpeg", "webp", "gif"].includes(extension);
+  const isImage = file.type.startsWith("image/") || isImageExtension;
   const isPdf = file.type === "application/pdf" || extension === "pdf";
   const isTxt = file.type.startsWith("text/") || extension === "txt";
   const isDocx =
